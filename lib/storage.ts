@@ -106,7 +106,7 @@ export interface Project {
   id: string
   name: string
   emoji: string
-  type: 'savings' | 'investment' | 'purchase'
+  type: 'savings' | 'investment' | 'purchase'| 'upcoming'
   targetAmount: number
   savedAmount: number
   targetDate: string
