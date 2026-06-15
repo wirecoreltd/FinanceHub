@@ -382,11 +382,13 @@ function projectedEndDate(remaining: number, minimumPayment: number): string | n
 }
 
 async function fetchHistory(debtId: string): Promise<DebtPaymentHistory[]> {
-  const { data } = await supabase
+  console.log('fetchHistory called with debtId:', debtId)
+  const { data, error } = await supabase
     .from('debt_payment_history')
     .select('*')
     .eq('debt_id', debtId)
     .order('paid_at', { ascending: false })
+  console.log('fetchHistory result:', { data, error })
   return (data ?? []).map(r => ({
     id: r.id,
     debtId: r.debt_id,
