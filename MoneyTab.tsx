@@ -22,7 +22,7 @@ interface Props {
 
 const COLORS = ['#F59E0B','#3B82F6','#8B5CF6','#EF4444','#10B981','#F97316']
 const EMOJIS = ['🏖️','🚗','🏠','💻','📱','✈️','🎓','💍','💰','🎮','👶']
-
+const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 const SUBTABS = [
   {
     id: 'transactions' as SubTab,
@@ -430,19 +430,26 @@ function DettesSection() {
   }
 
   async function handlePay(id: string) {
-    const amt = Number(payAmount)
-    if (!amt || amt <= 0) return
-    const debt = debts.find(d => d.id === id)!
-    const newRemaining = Math.max(0, debt.remaining - amt)
-    if (newRemaining === 0) {
-      await deleteDebt(id)
-      setDebts(prev => prev.filter(d => d.id !== id))
-    } else {
-      await updateDebt(id, { remaining: newRemaining })
-      setDebts(prev => prev.map(d => d.id !== id ? d : { ...d, remaining: newRemaining }))
-    }
+  const amt = Number(payAmount)
+  if (!amt || amt <= 0) return
+  const debt = debts.find(d => d.id === id)!
+
+  if (debt.amount === 0) {
+    setConfirmDeleteId(id)
     setPayingId(null); setPayAmount('')
+    return
   }
+
+  const newRemaining = Math.max(0, debt.remaining - amt)
+  if (newRemaining === 0) {
+    await deleteDebt(id)
+    setDebts(prev => prev.filter(d => d.id !== id))
+  } else {
+    await updateDebt(id, { remaining: newRemaining })
+    setDebts(prev => prev.map(d => d.id !== id ? d : { ...d, remaining: newRemaining }))
+  }
+  setPayingId(null); setPayAmount('')
+}
 
   if (loading) return <div className="card text-center py-8 text-ink-soft">Chargement...</div>
 
@@ -539,6 +546,32 @@ function DettesSection() {
           </div>
         )
       })}
+
+      {confirmDeleteId && (
+  <div className="bottom-sheet bg-black/40">
+    <div className="bottom-sheet-content">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-lg font-bold text-ink">Aucun montant total</h2>
+        <button className="btn-icon bg-mist" onClick={() => setConfirmDeleteId(null)}><X size={20}/></button>
+      </div>
+      <p className="text-sm text-ink-soft">
+        Cette dette n'a pas de montant total défini, son solde est déjà à 0.
+        Veux-tu supprimer cette dette ?
+      </p>
+      <div className="flex gap-2">
+        <button className="btn-ghost flex-1" onClick={() => setConfirmDeleteId(null)}>Annuler</button>
+        <button className="btn-primary flex-1" style={{ backgroundColor: '#DC2626' }}
+          onClick={async () => {
+            await deleteDebt(confirmDeleteId)
+            setDebts(prev => prev.filter(d => d.id !== confirmDeleteId))
+            setConfirmDeleteId(null)
+          }}>
+          Oui, supprimer
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {showForm && (
         <div className="bottom-sheet bg-black/40">
