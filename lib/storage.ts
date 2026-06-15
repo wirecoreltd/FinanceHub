@@ -44,6 +44,14 @@ export interface SavingsGoal {
   createdAt: string
 }
 
+export interface DebtPaymentHistory {
+  id: string
+  debtId: string
+  amount: number
+  paidAt: string
+  createdAt: string
+}
+
 export interface Debt {
   id: string
   type: 'owe' | 'owed'
@@ -54,6 +62,7 @@ export interface Debt {
   interestRate?: number
   note: string
   dueDate?: string
+  recurring: boolean
   createdAt: string
 }
 
@@ -159,10 +168,17 @@ export async function toggleDebtPayment(debtId: string, month: string, amount?: 
   if (debt.amount > 0) {
     const newRemaining = Math.max(0, currentRemaining - payAmount)
     if (newRemaining === 0) {
+      if (debt.recurring) {
+        // Dette récurrente : reset le remaining à amount au lieu de supprimer
+        await supabase.from('debts').update({ remaining: debt.amount }).eq('id', debtId)
+        await addDebtPaymentHistory(debtId, payAmount)
+        return { deleted: false }
+      }
       await deleteDebt(debtId)
       return { deleted: true }
     }
     await supabase.from('debts').update({ remaining: newRemaining }).eq('id', debtId)
+    await addDebtPaymentHistory(debtId, payAmount)
   }
 
   return { deleted: false }
@@ -338,7 +354,6 @@ export async function getBudgets(): Promise<BudgetCategory[]> {
     .eq('user_id', userId)
 
   if (!data || data.length === 0) {
-    // Premier accès : insérer les budgets par défaut
     const toInsert = DEFAULT_BUDGETS.map(b => ({ ...b, user_id: userId }))
     const { data: inserted } = await supabase
       .from('budget_categories')
@@ -430,6 +445,7 @@ export async function getDebts(): Promise<Debt[]> {
     interestRate:   r.interest_rate ?? undefined,
     note:           r.note ?? '',
     dueDate:        r.due_date ?? undefined,
+    recurring:      r.recurring ?? false,
     createdAt:      r.created_at,
   }))
 }
@@ -449,6 +465,7 @@ export async function addDebt(d: Omit<Debt, 'id' | 'createdAt'>): Promise<Debt> 
       interest_rate:   d.interestRate,
       note:            d.note,
       due_date:        d.dueDate,
+      recurring:       d.recurring,
     })
     .select()
     .single()
@@ -465,6 +482,7 @@ export async function addDebt(d: Omit<Debt, 'id' | 'createdAt'>): Promise<Debt> 
     interestRate:   data.interest_rate ?? undefined,
     note:           data.note ?? '',
     dueDate:        data.due_date ?? undefined,
+    recurring:      data.recurring ?? false,
     createdAt:      data.created_at,
   }
 }
@@ -479,11 +497,38 @@ export async function updateDebt(id: string, fields: Partial<Omit<Debt, 'id' | '
   if (fields.interestRate    !== undefined) update.interest_rate    = fields.interestRate
   if (fields.note            !== undefined) update.note             = fields.note
   if (fields.dueDate         !== undefined) update.due_date         = fields.dueDate
+  if (fields.recurring       !== undefined) update.recurring        = fields.recurring
   await supabase.from('debts').update(update).eq('id', id)
 }
 
 export async function deleteDebt(id: string): Promise<void> {
   await supabase.from('debts').delete().eq('id', id)
+}
+
+// ─── Debt Payment History ─────────────────────────────────────────────────────
+
+export async function getDebtPaymentHistory(debtId: string): Promise<DebtPaymentHistory[]> {
+  const { data } = await supabase
+    .from('debt_payment_history')
+    .select('*')
+    .eq('debt_id', debtId)
+    .order('paid_at', { ascending: false })
+
+  return (data ?? []).map(r => ({
+    id:        r.id,
+    debtId:    r.debt_id,
+    amount:    r.amount,
+    paidAt:    r.paid_at,
+    createdAt: r.created_at,
+  }))
+}
+
+export async function addDebtPaymentHistory(debtId: string, amount: number, paidAt?: string): Promise<void> {
+  await supabase.from('debt_payment_history').insert({
+    debt_id: debtId,
+    amount,
+    paid_at: paidAt ?? new Date().toISOString().slice(0, 10),
+  })
 }
 
 // ─── Recurring Payments ───────────────────────────────────────────────────────
@@ -546,7 +591,6 @@ export async function deleteRecurringPayment(id: string): Promise<void> {
 }
 
 export async function toggleRecurringPayment(id: string, month: string, amount?: number): Promise<void> {
-  // Vérifie si un check existe déjà
   const { data: existing } = await supabase
     .from('recurring_payment_checks')
     .select('*')
@@ -563,7 +607,6 @@ export async function toggleRecurringPayment(id: string, month: string, amount?:
       })
       .eq('id', existing.id)
   } else {
-    // Récupère le defaultAmount
     const { data: parent } = await supabase
       .from('recurring_payments')
       .select('default_amount')
@@ -786,7 +829,8 @@ export function computeCoachPlan(
   const debtMinimums     = owedDebts.reduce((s, d) => s + d.minimumPayment, 0)
   const variableEstimate = totalIncome * 0.15
   const freeMoney        = Math.max(0, totalIncome - fixedCharges - debtMinimums - variableEstimate)
-  const debtsByPriority  = [...owedDebts].sort((a, b) => a.remaining - b.remaining)
+  // Snowball : exclure les dettes récurrentes (elles se reset, pas d'objectif de solde 0)
+  const debtsByPriority  = [...owedDebts].filter(d => !d.recurring).sort((a, b) => a.remaining - b.remaining)
   const snowballTarget   = debtsByPriority[0] || null
   const snowballSuggestion = Math.round(freeMoney * 0.5)
   const savingsSuggestion  = Math.round(freeMoney * 0.3)
@@ -901,16 +945,47 @@ export function monthsUntil(targetDate: string): number {
   )
 }
 
+/**
+ * Calcule la date de fin estimée d'une dette.
+ * Retourne null si la dette est récurrente ou si minimumPayment = 0.
+ */
+export function debtEndDate(debt: Debt): Date | null {
+  if (debt.recurring || debt.minimumPayment <= 0 || debt.remaining <= 0) return null
+  const monthsLeft = Math.ceil(debt.remaining / debt.minimumPayment)
+  const d = new Date()
+  d.setDate(1)
+  d.setMonth(d.getMonth() + monthsLeft)
+  return d
+}
+
+/**
+ * Formatte la date de fin en "Terminé en août 2026"
+ */
+export function formatDebtEndDate(debt: Debt): string | null {
+  const d = debtEndDate(debt)
+  if (!d) return null
+  return `Terminé en ${d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`
+}
+
+/**
+ * Retourne le nombre de jours jusqu'à l'échéance (négatif si dépassé).
+ */
+export function daysUntilDue(dueDate: string): number {
+  const now    = new Date(); now.setHours(0, 0, 0, 0)
+  const target = new Date(dueDate); target.setHours(0, 0, 0, 0)
+  return Math.round((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+}
+
 // ─── Compatibility aliases ────────────────────────────────────────────────────
 
 export type RecurringCharge = RecurringPayment
 
 export const getRecurringCharges = getRecurringPayments
 
-export const saveRecurringCharges = async (_: RecurringPayment[]): Promise<void> => {}
+export const saveRecurringCharges  = async (_: RecurringPayment[]): Promise<void> => {}
 export const saveRecurringPayments = async (_: RecurringPayment[]): Promise<void> => {}
-export const saveMonthlyIncomes = async (_: MonthlyIncome[]): Promise<void> => {}
-export const saveProjects = async (_: Project[]): Promise<void> => {}
+export const saveMonthlyIncomes    = async (_: MonthlyIncome[]): Promise<void> => {}
+export const saveProjects          = async (_: Project[]): Promise<void> => {}
 
 export function projectMonthlyNeeded(p: Project): number {
   const months = monthsUntil(p.targetDate)
