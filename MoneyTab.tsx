@@ -396,12 +396,12 @@ async function fetchHistory(debtId: string): Promise<DebtPaymentHistory[]> {
 }
 
 async function logPayment(debtId: string, amount: number, date: string): Promise<void> {
-  await supabase.from('debt_payment_history').insert({
+  const { data, error } = await supabase.from('debt_payment_history').insert({
     debt_id: debtId,
     amount,
     paid_at: date,
   })
-    console.log('logPayment result:', { data, error })
+  console.log('logPayment result:', { data, error })
 }
 
 // ─── Dettes ───────────────────────────────────────────────────────────────────
