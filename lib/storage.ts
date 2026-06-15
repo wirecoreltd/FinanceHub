@@ -71,6 +71,103 @@ export interface RecurringPayment {
   }[]
 }
 
+// ─── Unified Monthly Checklist (récurrents + dettes) ──────────────────────────
+
+export interface ChecklistItem {
+  id: string
+  source: 'recurring' | 'debt'
+  name: string
+  emoji: string
+  defaultAmount: number
+  amount: number
+  paid: boolean
+  category?: string
+  frequency?: 'monthly' | 'yearly'
+  hasTotal?: boolean
+}
+
+export async function getMonthlyChecklist(month: string): Promise<ChecklistItem[]> {
+  const [recurring, debts] = await Promise.all([getRecurringPayments(), getDebts()])
+
+  const recurringItems: ChecklistItem[] = recurring.map(r => {
+    const pay = getPaymentForMonth(r, month)
+    return {
+      id: r.id, source: 'recurring', name: r.name,
+      emoji: RECURRING_CATEGORY_EMOJI[r.category],
+      defaultAmount: r.defaultAmount, amount: pay.amount, paid: pay.paid,
+      category: r.category, frequency: r.frequency,
+    }
+  })
+
+  const eligibleDebts = debts.filter(d => d.type === 'owe' && d.minimumPayment > 0)
+  let checks: { debt_id: string; paid: boolean; amount: number }[] = []
+  if (eligibleDebts.length > 0) {
+    const { data } = await supabase
+      .from('debt_payment_checks')
+      .select('debt_id, paid, amount')
+      .in('debt_id', eligibleDebts.map(d => d.id))
+      .eq('month', month)
+    checks = data ?? []
+  }
+
+  const debtItems: ChecklistItem[] = eligibleDebts.map(d => {
+    const check = checks.find(c => c.debt_id === d.id)
+    return {
+      id: d.id, source: 'debt', name: d.person, emoji: '💳',
+      defaultAmount: d.minimumPayment,
+      amount: check?.amount ?? d.minimumPayment,
+      paid: check?.paid ?? false,
+      hasTotal: d.amount > 0,
+    }
+  })
+
+  return [...recurringItems, ...debtItems]
+}
+
+export async function toggleDebtPayment(debtId: string, month: string, amount?: number): Promise<{ deleted: boolean }> {
+  const { data: debt } = await supabase.from('debts').select('*').eq('id', debtId).single()
+  if (!debt) throw new Error('Dette introuvable')
+
+  const { data: existing } = await supabase
+    .from('debt_payment_checks')
+    .select('*')
+    .eq('debt_id', debtId)
+    .eq('month', month)
+    .maybeSingle()
+
+  // Décocher (sans changer le montant)
+  if (existing?.paid && amount === undefined) {
+    await supabase.from('debt_payment_checks').update({ paid: false }).eq('id', existing.id)
+    if (debt.amount > 0) {
+      await supabase.from('debts').update({ remaining: debt.remaining + existing.amount }).eq('id', debtId)
+    }
+    return { deleted: false }
+  }
+
+  // Si déjà payé et on édite le montant : on annule l'ancien d'abord
+  let currentRemaining = debt.remaining
+  if (existing?.paid && debt.amount > 0) currentRemaining += existing.amount
+
+  const payAmount = amount ?? existing?.amount ?? debt.minimum_payment
+
+  if (existing) {
+    await supabase.from('debt_payment_checks').update({ paid: true, amount: payAmount }).eq('id', existing.id)
+  } else {
+    await supabase.from('debt_payment_checks').insert({ debt_id: debtId, month, paid: true, amount: payAmount })
+  }
+
+  if (debt.amount > 0) {
+    const newRemaining = Math.max(0, currentRemaining - payAmount)
+    if (newRemaining === 0) {
+      await deleteDebt(debtId)
+      return { deleted: true }
+    }
+    await supabase.from('debts').update({ remaining: newRemaining }).eq('id', debtId)
+  }
+
+  return { deleted: false }
+}
+
 export interface MonthlyIncome {
   id: string
   label: string
