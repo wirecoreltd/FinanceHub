@@ -532,7 +532,7 @@ function DettesSection() {
               </div>
             ) : (
               <button className="w-full py-3 text-sm font-bold text-danger bg-danger-light rounded-2xl active:scale-95 transition-all"
-                onClick={() => { setPayingId(d.id); setPayAmount('') }}>
+                onClick={() => { setPayingId(d.id); setPayAmount(String(d.minimumPayment || '')) }}>
                 Enregistrer un remboursement
               </button>
             )}
