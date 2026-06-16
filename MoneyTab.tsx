@@ -81,75 +81,259 @@ function TransactionsSection({ transactions, onUpdate }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all')
-  const [form, setForm] = useState({ type: 'expense' as 'income' | 'expense', amount: '', category: EXPENSE_CATEGORIES[0], note: '', date: new Date().toISOString().slice(0, 10) })
-  const filtered = transactions.filter(t => filter === 'all' || t.type === filter)
+  const [search, setSearch] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState(currentYearMonth())
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const [form, setForm] = useState({
+    type: 'expense' as 'income' | 'expense',
+    amount: '', category: EXPENSE_CATEGORIES[0], note: '',
+    date: new Date().toISOString().slice(0, 10),
+  })
+
   const categories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
-  const ym = currentYearMonth()
-  const monthTxs = transactions.filter(t => t.date.startsWith(ym))
+
+  const monthOptions = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date()
+    d.setDate(1)
+    d.setMonth(d.getMonth() - i)
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    return { ym, label }
+  })
+
+  const filtered = transactions
+    .filter(t => t.date.startsWith(selectedMonth))
+    .filter(t => filter === 'all' || t.type === filter)
+    .filter(t => {
+      if (!search.trim()) return true
+      const q = search.toLowerCase()
+      return t.note?.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
+    })
+
+  const monthTxs = transactions.filter(t => t.date.startsWith(selectedMonth))
   const income   = monthTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const expenses = monthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+
+  const filteredTotal    = filtered.reduce((s, t) => t.type === 'income' ? s + t.amount : s - t.amount, 0)
+  const filteredIncome   = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const filteredExpenses = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+
+  function openAdd() {
+    setEditingTx(null)
+    setForm({ type: 'expense', amount: '', category: EXPENSE_CATEGORIES[0], note: '', date: new Date().toISOString().slice(0, 10) })
+    setShowForm(true)
+  }
+
+  function openEdit(tx: Transaction) {
+    setEditingTx(tx)
+    setForm({ type: tx.type, amount: String(tx.amount), category: tx.category, note: tx.note, date: tx.date })
+    setShowForm(true)
+  }
+
   async function handleSubmit() {
     if (!form.amount || Number(form.amount) <= 0) return
     setLoading(true)
-    await addTransaction({ ...form, amount: Number(form.amount) })
-    setForm({ type: 'expense', amount: '', category: EXPENSE_CATEGORIES[0], note: '', date: new Date().toISOString().slice(0, 10) })
-    setShowForm(false); onUpdate(); setLoading(false)
+    if (editingTx) {
+      await supabase.from('transactions').update({
+        type: form.type, amount: Number(form.amount),
+        category: form.category, note: form.note, date: form.date,
+      }).eq('id', editingTx.id)
+    } else {
+      await addTransaction({ ...form, amount: Number(form.amount) })
+    }
+    setShowForm(false)
+    setEditingTx(null)
+    onUpdate()
+    setLoading(false)
   }
+
+  async function handleDelete(id: string) {
+    await deleteTransaction(id)
+    onUpdate()
+  }
+
   return (
     <div className="space-y-3">
+
+      {/* Note explicative */}
+      <div className="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-2xl">
+        <span className="text-base">💡</span>
+        <p className="text-xs text-blue-700 leading-relaxed">
+          <strong>Transactions</strong> = mouvements ponctuels d'argent (courses, salaire, restaurant...).
+          Pour les paiements qui reviennent chaque mois, utilise <strong>Bilan → Charges récurrentes</strong>.
+        </p>
+      </div>
+
+      {/* Sélecteur de mois */}
+      <select className="input" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}>
+        {monthOptions.map(m => (
+          <option key={m.ym} value={m.ym}>{m.label}</option>
+        ))}
+      </select>
+
+      {/* Résumé mois */}
       <div className="grid grid-cols-2 gap-3">
         <div className="card bg-positive-light">
-          <p className="text-xs font-bold text-positive uppercase tracking-wide">Revenus ce mois</p>
+          <p className="text-xs font-bold text-positive uppercase tracking-wide">Revenus</p>
           <p className="text-lg font-bold font-mono text-positive mt-1">{formatAmount(income)}</p>
         </div>
         <div className="card bg-danger-light">
-          <p className="text-xs font-bold text-danger uppercase tracking-wide">Dépenses ce mois</p>
+          <p className="text-xs font-bold text-danger uppercase tracking-wide">Dépenses</p>
           <p className="text-lg font-bold font-mono text-danger mt-1">{formatAmount(expenses)}</p>
         </div>
       </div>
+
+      {/* Filtres type */}
       <div className="flex gap-2">
-        {([{ id: 'all', label: 'Tout' }, { id: 'income', label: '💰 Revenus' }, { id: 'expense', label: '💸 Dépenses' }] as const).map(f => (
+        {([
+          { id: 'all',     label: 'Tout' },
+          { id: 'income',  label: '💰 Revenus' },
+          { id: 'expense', label: '💸 Dépenses' },
+        ] as const).map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)}
-            className={`flex-1 py-2.5 rounded-2xl text-sm font-semibold transition-colors ${filter === f.id ? 'bg-ink text-white' : 'bg-white text-ink-soft border border-mist-dark'}`}>
+            className={`flex-1 py-2.5 rounded-2xl text-sm font-semibold transition-colors
+              ${filter === f.id ? 'bg-ink text-white' : 'bg-white text-ink-soft border border-mist-dark'}`}>
             {f.label}
           </button>
         ))}
       </div>
-      <button onClick={() => setShowForm(true)} className="btn-primary w-full gap-2"><Plus size={18}/> Ajouter une transaction</button>
+
+      {/* Recherche */}
+      <div className="relative">
+        <input
+          className="input pl-9"
+          placeholder="Rechercher par note ou catégorie..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft text-sm">🔍</span>
+        {search && (
+          <button onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink text-xs font-bold">
+            ✕
+          </button>
+        )}
+      </div>
+
+      {/* Bouton ajouter */}
+      <button onClick={openAdd} className="btn-primary w-full gap-2">
+        <Plus size={18}/> Ajouter une transaction
+      </button>
+
+      {/* Liste */}
       <div className="space-y-2">
         {filtered.length === 0 ? (
-          <div className="card text-center py-10"><p className="text-3xl mb-2">💸</p><p className="font-semibold text-ink">Aucune transaction</p><p className="text-sm text-ink-soft mt-1">Appuie sur "Ajouter" pour commencer</p></div>
+          <div className="card text-center py-10">
+            <p className="text-3xl mb-2">💸</p>
+            <p className="font-semibold text-ink">
+              {search ? 'Aucun résultat' : 'Aucune transaction ce mois'}
+            </p>
+            <p className="text-sm text-ink-soft mt-1">
+              {search ? `Rien pour "${search}"` : 'Appuie sur "Ajouter" pour commencer'}
+            </p>
+          </div>
         ) : filtered.map(tx => (
           <div key={tx.id} className="card flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${tx.type === 'income' ? 'bg-positive-light' : 'bg-danger-light'}`}>
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0
+                ${tx.type === 'income' ? 'bg-positive-light' : 'bg-danger-light'}`}>
                 <span className="text-lg">{tx.type === 'income' ? '💰' : '💸'}</span>
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-ink truncate">{tx.note || tx.category}</p>
-                <p className="text-xs text-ink-soft">{tx.category} · {new Date(tx.date).toLocaleDateString('fr-FR')}</p>
+                <p className="text-xs text-ink-soft">
+                  {tx.category} · {new Date(tx.date).toLocaleDateString('fr-FR')}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <span className={`font-mono text-sm font-bold ${tx.type === 'income' ? 'text-positive' : 'text-danger'}`}>{tx.type === 'income' ? '+' : '−'}{formatAmount(tx.amount)}</span>
-              <button className="w-9 h-9 rounded-xl bg-mist hover:bg-danger-light text-ink-soft hover:text-danger flex items-center justify-center active:scale-95" onClick={() => { deleteTransaction(tx.id); onUpdate() }}><Trash2 size={15}/></button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className={`font-mono text-sm font-bold ${tx.type === 'income' ? 'text-positive' : 'text-danger'}`}>
+                {tx.type === 'income' ? '+' : '−'}{formatAmount(tx.amount)}
+              </span>
+              <button
+                className="w-8 h-8 rounded-xl bg-mist hover:bg-accent-light text-ink-soft hover:text-accent flex items-center justify-center active:scale-95"
+                onClick={() => openEdit(tx)}>
+                <Pencil size={13}/>
+              </button>
+              <button
+                className="w-8 h-8 rounded-xl bg-mist hover:bg-danger-light text-ink-soft hover:text-danger flex items-center justify-center active:scale-95"
+                onClick={() => handleDelete(tx.id)}>
+                <Trash2 size={13}/>
+              </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Total filtré */}
+      {filtered.length > 0 && (
+        <div className="card bg-mist flex items-center justify-between py-3 px-4">
+          <span className="text-xs text-ink-soft font-semibold">
+            {filtered.length} transaction{filtered.length > 1 ? 's' : ''}
+          </span>
+          {filter === 'all' && (
+            <span className={`font-mono text-sm font-bold ${filteredTotal >= 0 ? 'text-positive' : 'text-danger'}`}>
+              {filteredTotal >= 0 ? '+' : ''}{formatAmount(Math.abs(filteredTotal))}
+            </span>
+          )}
+          {filter === 'income' && (
+            <span className="font-mono text-sm font-bold text-positive">+{formatAmount(filteredIncome)}</span>
+          )}
+          {filter === 'expense' && (
+            <span className="font-mono text-sm font-bold text-danger">−{formatAmount(filteredExpenses)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Modal ajout / modification */}
       {showForm && (
         <div className="bottom-sheet bg-black/40">
           <div className="bottom-sheet-content">
-            <div className="flex items-center justify-between mb-2"><h2 className="text-lg font-bold text-ink">Nouvelle transaction</h2><button className="btn-icon bg-mist" onClick={() => setShowForm(false)}><X size={20}/></button></div>
-            <div className="flex rounded-2xl overflow-hidden border-2 border-mist-dark">
-              <button className={`flex-1 py-3 text-sm font-bold ${form.type === 'expense' ? 'bg-danger text-white' : 'bg-white text-ink-soft'}`} onClick={() => setForm(f => ({...f, type:'expense', category: EXPENSE_CATEGORIES[0]}))}>💸 Dépense</button>
-              <button className={`flex-1 py-3 text-sm font-bold ${form.type === 'income' ? 'bg-positive text-white' : 'bg-white text-ink-soft'}`} onClick={() => setForm(f => ({...f, type:'income', category: INCOME_CATEGORIES[0]}))}>💰 Revenu</button>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-ink">
+                {editingTx ? 'Modifier la transaction' : 'Nouvelle transaction'}
+              </h2>
+              <button className="btn-icon bg-mist" onClick={() => { setShowForm(false); setEditingTx(null) }}>
+                <X size={20}/>
+              </button>
             </div>
-            <div><label className="label">Montant (Rs)</label><input className="input text-xl font-bold" type="number" placeholder="0" value={form.amount} onChange={e => setForm(f => ({...f, amount: e.target.value}))}/></div>
-            <div><label className="label">Catégorie</label><select className="input" value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))}>{categories.map(c => <option key={c}>{c}</option>)}</select></div>
-            <div><label className="label">Note (optionnel)</label><input className="input" placeholder="Ex: Courses Jumbo, Salaire avril..." value={form.note} onChange={e => setForm(f => ({...f, note: e.target.value}))}/></div>
-            <div><label className="label">Date</label><input className="input" type="date" value={form.date} onChange={e => setForm(f => ({...f, date: e.target.value}))}/></div>
-            <button className="btn-primary w-full py-4 text-base" onClick={handleSubmit} disabled={loading}>{loading ? 'Enregistrement...' : 'Enregistrer'}</button>
+            <div className="flex rounded-2xl overflow-hidden border-2 border-mist-dark">
+              <button
+                className={`flex-1 py-3 text-sm font-bold ${form.type === 'expense' ? 'bg-danger text-white' : 'bg-white text-ink-soft'}`}
+                onClick={() => setForm(f => ({...f, type:'expense', category: EXPENSE_CATEGORIES[0]}))}>
+                💸 Dépense
+              </button>
+              <button
+                className={`flex-1 py-3 text-sm font-bold ${form.type === 'income' ? 'bg-positive text-white' : 'bg-white text-ink-soft'}`}
+                onClick={() => setForm(f => ({...f, type:'income', category: INCOME_CATEGORIES[0]}))}>
+                💰 Revenu
+              </button>
+            </div>
+            <div>
+              <label className="label">Montant (Rs)</label>
+              <input className="input text-xl font-bold" type="number" placeholder="0"
+                value={form.amount} onChange={e => setForm(f => ({...f, amount: e.target.value}))}/>
+            </div>
+            <div>
+              <label className="label">Catégorie</label>
+              <select className="input" value={form.category}
+                onChange={e => setForm(f => ({...f, category: e.target.value}))}>
+                {categories.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Note (optionnel)</label>
+              <input className="input" placeholder="Ex: Courses Jumbo, Salaire avril..."
+                value={form.note} onChange={e => setForm(f => ({...f, note: e.target.value}))}/>
+            </div>
+            <div>
+              <label className="label">Date</label>
+              <input className="input" type="date" value={form.date}
+                onChange={e => setForm(f => ({...f, date: e.target.value}))}/>
+            </div>
+            <button className="btn-primary w-full py-4 text-base" onClick={handleSubmit} disabled={loading}>
+              {loading ? 'Enregistrement...' : editingTx ? 'Enregistrer les modifications' : 'Enregistrer'}
+            </button>
           </div>
         </div>
       )}
