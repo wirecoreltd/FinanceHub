@@ -284,18 +284,26 @@ function BudgetSection({ transactions }: { transactions: Transaction[] }) {
       const [b, r] = await Promise.all([getBudgets(), getRecurringPayments()])
       setBudgets(b); setRecurringPayments(r)
 
-     const { data: { user } } = await supabase.auth.getUser()
-      const { data: dh, error } = await supabase
-      .from('debt_payment_history')
-      .select('amount, category, debts!inner(user_id)')
-      .eq('debts.user_id', (await supabase.auth.getUser()).data.user!.id)
-      .like('paid_at', `${ym}%`)
-    
-    console.log('=== DEBT PAYMENTS DEBUG ===')
-    console.log('ym:', ym)
-    console.log('dh:', dh)
-    console.log('error:', error)
-    setDebtPayments((dh ?? []).map(r => ({ category: r.category ?? 'Autre', amount: Number(r.amount) })))
+   const { data: { user } } = await supabase.auth.getUser()
+
+// 1. Récupère les IDs des dettes de l'utilisateur
+const { data: userDebts } = await supabase
+  .from('debts')
+  .select('id')
+  .eq('user_id', user!.id)
+
+const debtIds = (userDebts ?? []).map(d => d.id)
+
+// 2. Récupère les paiements du mois pour ces dettes
+const { data: dh, error } = await supabase
+  .from('debt_payment_history')
+  .select('amount, category')
+  .in('debt_id', debtIds.length > 0 ? debtIds : ['00000000-0000-0000-0000-000000000000'])
+  .gte('paid_at', `${ym}-01`)
+  .lte('paid_at', `${ym}-31`)
+
+console.log('dh:', dh, 'error:', error)
+setDebtPayments((dh ?? []).map(r => ({ category: r.category ?? 'Autre', amount: Number(r.amount) })))
     }
     load().finally(() => setLoading(false))
   }, [ym])
