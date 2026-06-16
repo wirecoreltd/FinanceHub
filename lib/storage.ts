@@ -41,6 +41,7 @@ export interface SavingsGoal {
   target: number
   saved: number
   emoji: string
+  category: string        // ← nouveau
   createdAt: string
 }
 
@@ -49,6 +50,7 @@ export interface DebtPaymentHistory {
   debtId: string
   amount: number
   paidAt: string
+  category?: string       // ← nouveau (héritée de la dette)
   createdAt: string
 }
 
@@ -63,6 +65,7 @@ export interface Debt {
   note: string
   dueDate?: string
   recurring: boolean
+  category: string        // ← nouveau (obligatoire)
   createdAt: string
 }
 
@@ -126,6 +129,7 @@ export async function getMonthlyChecklist(month: string): Promise<ChecklistItem[
       defaultAmount: d.minimumPayment,
       amount: check?.amount ?? d.minimumPayment,
       paid: check?.paid ?? false,
+      category: d.category,
       hasTotal: d.amount > 0,
     }
   })
@@ -144,7 +148,6 @@ export async function toggleDebtPayment(debtId: string, month: string, amount?: 
     .eq('month', month)
     .maybeSingle()
 
-  // Décocher (sans changer le montant)
   if (existing?.paid && amount === undefined) {
     await supabase.from('debt_payment_checks').update({ paid: false }).eq('id', existing.id)
     if (debt.amount > 0) {
@@ -153,7 +156,6 @@ export async function toggleDebtPayment(debtId: string, month: string, amount?: 
     return { deleted: false }
   }
 
-  // Si déjà payé et on édite le montant : on annule l'ancien d'abord
   let currentRemaining = debt.remaining
   if (existing?.paid && debt.amount > 0) currentRemaining += existing.amount
 
@@ -169,16 +171,15 @@ export async function toggleDebtPayment(debtId: string, month: string, amount?: 
     const newRemaining = Math.max(0, currentRemaining - payAmount)
     if (newRemaining === 0) {
       if (debt.recurring) {
-        // Dette récurrente : reset le remaining à amount au lieu de supprimer
         await supabase.from('debts').update({ remaining: debt.amount }).eq('id', debtId)
-        await addDebtPaymentHistory(debtId, payAmount)
+        await addDebtPaymentHistory(debtId, payAmount, undefined, debt.category)
         return { deleted: false }
       }
       await deleteDebt(debtId)
       return { deleted: true }
     }
     await supabase.from('debts').update({ remaining: newRemaining }).eq('id', debtId)
-    await addDebtPaymentHistory(debtId, payAmount)
+    await addDebtPaymentHistory(debtId, payAmount, undefined, debt.category)
   }
 
   return { deleted: false }
@@ -207,10 +208,25 @@ export interface Project {
 
 // ─── Categories ───────────────────────────────────────────────────────────────
 
-export const EXPENSE_CATEGORIES = [
-  'Logement', 'Alimentation', 'Transport', 'Santé', 'Loisirs',
-  'Vêtements', 'Éducation', 'Factures', 'Restaurants', 'Épargne', 'Autre'
-]
+// Liste commune utilisée par transactions, dettes, épargne et budget
+export const BUDGET_CATEGORIES = [
+  'Logement',
+  'Alimentation',
+  'Transport',
+  'Santé',
+  'Loisirs',
+  'Vêtements',
+  'Éducation',
+  'Factures',
+  'Restaurants',
+  'Épargne',
+  'Dette',
+  'Autre',
+] as const
+
+export type BudgetCategoryName = typeof BUDGET_CATEGORIES[number]
+
+export const EXPENSE_CATEGORIES = [...BUDGET_CATEGORIES]
 
 export const INCOME_CATEGORIES = [
   'Salaire', 'Freelance', 'Investissements', 'Cadeau', 'Remboursement', 'Autre'
@@ -225,6 +241,18 @@ export const RECURRING_CATEGORY_EMOJI: Record<string, string> = {
   logement: '🏠', transport: '🚗', assurance: '🛡️',
   école: '🎓', alimentation: '🛒', factures: '⚡',
   dette: '💳', autre: '📦'
+}
+
+// Mapping catégorie récurrente (minuscule) → catégorie budget (casse BUDGET_CATEGORIES)
+export const RECURRING_TO_BUDGET: Record<string, string> = {
+  logement:     'Logement',
+  transport:    'Transport',
+  alimentation: 'Alimentation',
+  factures:     'Factures',
+  assurance:    'Factures',
+  école:        'Éducation',
+  dette:        'Dette',
+  autre:        'Autre',
 }
 
 // ─── Helpers internes ─────────────────────────────────────────────────────────
@@ -378,6 +406,10 @@ export async function addBudget(b: Omit<BudgetCategory, 'id'>): Promise<BudgetCa
   return { id: data.id, name: data.name, limit: data.limit, color: data.color }
 }
 
+export async function updateBudget(id: string, fields: { name?: string; limit?: number; color?: string }): Promise<void> {
+  await supabase.from('budget_categories').update(fields).eq('id', id)
+}
+
 export async function deleteBudget(id: string): Promise<void> {
   await supabase.from('budget_categories').delete().eq('id', id)
 }
@@ -399,6 +431,7 @@ export async function getSavings(): Promise<SavingsGoal[]> {
     target:    r.target,
     saved:     r.saved,
     emoji:     r.emoji,
+    category:  r.category ?? 'Épargne',
     createdAt: r.created_at,
   }))
 }
@@ -408,12 +441,20 @@ export async function addSavingsGoal(g: Omit<SavingsGoal, 'id' | 'createdAt'>): 
 
   const { data, error } = await supabase
     .from('savings_goals')
-    .insert({ user_id: userId, name: g.name, target: g.target, saved: g.saved, emoji: g.emoji })
+    .insert({ user_id: userId, name: g.name, target: g.target, saved: g.saved, emoji: g.emoji, category: g.category ?? 'Épargne' })
     .select()
     .single()
 
   if (error) throw error
-  return { id: data.id, name: data.name, target: data.target, saved: data.saved, emoji: data.emoji, createdAt: data.created_at }
+  return {
+    id:        data.id,
+    name:      data.name,
+    target:    data.target,
+    saved:     data.saved,
+    emoji:     data.emoji,
+    category:  data.category ?? 'Épargne',
+    createdAt: data.created_at,
+  }
 }
 
 export async function updateSavingsGoal(id: string, saved: number): Promise<void> {
@@ -446,6 +487,7 @@ export async function getDebts(): Promise<Debt[]> {
     note:           r.note ?? '',
     dueDate:        r.due_date ?? undefined,
     recurring:      r.recurring ?? false,
+    category:       r.category ?? 'Dette',
     createdAt:      r.created_at,
   }))
 }
@@ -466,6 +508,7 @@ export async function addDebt(d: Omit<Debt, 'id' | 'createdAt'>): Promise<Debt> 
       note:            d.note,
       due_date:        d.dueDate,
       recurring:       d.recurring,
+      category:        d.category ?? 'Dette',
     })
     .select()
     .single()
@@ -483,6 +526,7 @@ export async function addDebt(d: Omit<Debt, 'id' | 'createdAt'>): Promise<Debt> 
     note:           data.note ?? '',
     dueDate:        data.due_date ?? undefined,
     recurring:      data.recurring ?? false,
+    category:       data.category ?? 'Dette',
     createdAt:      data.created_at,
   }
 }
@@ -498,6 +542,7 @@ export async function updateDebt(id: string, fields: Partial<Omit<Debt, 'id' | '
   if (fields.note            !== undefined) update.note             = fields.note
   if (fields.dueDate         !== undefined) update.due_date         = fields.dueDate
   if (fields.recurring       !== undefined) update.recurring        = fields.recurring
+  if (fields.category        !== undefined) update.category         = fields.category
   await supabase.from('debts').update(update).eq('id', id)
 }
 
@@ -519,15 +564,22 @@ export async function getDebtPaymentHistory(debtId: string): Promise<DebtPayment
     debtId:    r.debt_id,
     amount:    r.amount,
     paidAt:    r.paid_at,
+    category:  r.category ?? undefined,
     createdAt: r.created_at,
   }))
 }
 
-export async function addDebtPaymentHistory(debtId: string, amount: number, paidAt?: string): Promise<void> {
+export async function addDebtPaymentHistory(
+  debtId: string,
+  amount: number,
+  paidAt?: string,
+  category?: string,
+): Promise<void> {
   await supabase.from('debt_payment_history').insert({
-    debt_id: debtId,
+    debt_id:  debtId,
     amount,
-    paid_at: paidAt ?? new Date().toISOString().slice(0, 10),
+    paid_at:  paidAt ?? new Date().toISOString().slice(0, 10),
+    category: category ?? null,
   })
 }
 
@@ -829,7 +881,6 @@ export function computeCoachPlan(
   const debtMinimums     = owedDebts.reduce((s, d) => s + d.minimumPayment, 0)
   const variableEstimate = totalIncome * 0.15
   const freeMoney        = Math.max(0, totalIncome - fixedCharges - debtMinimums - variableEstimate)
-  // Snowball : exclure les dettes récurrentes (elles se reset, pas d'objectif de solde 0)
   const debtsByPriority  = [...owedDebts].filter(d => !d.recurring).sort((a, b) => a.remaining - b.remaining)
   const snowballTarget   = debtsByPriority[0] || null
   const snowballSuggestion = Math.round(freeMoney * 0.5)
@@ -945,10 +996,6 @@ export function monthsUntil(targetDate: string): number {
   )
 }
 
-/**
- * Calcule la date de fin estimée d'une dette.
- * Retourne null si la dette est récurrente ou si minimumPayment = 0.
- */
 export function debtEndDate(debt: Debt): Date | null {
   if (debt.recurring || debt.minimumPayment <= 0 || debt.remaining <= 0) return null
   const monthsLeft = Math.ceil(debt.remaining / debt.minimumPayment)
@@ -958,18 +1005,12 @@ export function debtEndDate(debt: Debt): Date | null {
   return d
 }
 
-/**
- * Formatte la date de fin en "Terminé en août 2026"
- */
 export function formatDebtEndDate(debt: Debt): string | null {
   const d = debtEndDate(debt)
   if (!d) return null
   return `Terminé en ${d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`
 }
 
-/**
- * Retourne le nombre de jours jusqu'à l'échéance (négatif si dépassé).
- */
 export function daysUntilDue(dueDate: string): number {
   const now    = new Date(); now.setHours(0, 0, 0, 0)
   const target = new Date(dueDate); target.setHours(0, 0, 0, 0)
