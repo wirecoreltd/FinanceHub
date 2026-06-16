@@ -1,43 +1,85 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
   Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine
 } from "recharts";
-import { Plus, Trash2, X, Check, Pencil, ChevronDown, ChevronUp } from "lucide-react";
 
-// ─── Mock data (remplace par les vrais imports de storage.ts) ─────────────────
-const fmt = (n: number) =>
+// ─── Mock data ─────────────────────────────────────────────────────────────────
+const fmt = (n: number): string =>
   new Intl.NumberFormat("fr-MU", { style: "currency", currency: "MUR", maximumFractionDigits: 0 }).format(n);
 
 const MOCK_INCOMES = [
   { id: "1", label: "Salaire", amount: 28000, isFixed: true, month: "2025-06" },
   { id: "2", label: "Freelance", amount: 4500, isFixed: false, month: "2025-06" },
 ];
+
 const MOCK_CHECKLIST = [
   { id: "r1", source: "recurring", name: "Loyer", emoji: "🏠", amount: 9500, defaultAmount: 9500, paid: true, category: "logement" },
   { id: "r2", source: "recurring", name: "Assurance", emoji: "🛡️", amount: 1800, defaultAmount: 1800, paid: true, category: "assurance" },
   { id: "d1", source: "debt", name: "Prêt BCP", emoji: "💳", amount: 4200, defaultAmount: 4200, paid: false, hasTotal: true },
   { id: "r3", source: "recurring", name: "Internet", emoji: "⚡", amount: 850, defaultAmount: 850, paid: false, category: "factures" },
 ];
+
 const MOCK_SAVINGS = [
   { id: "s1", name: "Fonds urgence", target: 80000, saved: 60000, emoji: "🛡️" },
   { id: "s2", name: "Vacances", target: 30000, saved: 12000, emoji: "✈️" },
 ];
-const MOCK_DEBTS = [{ id: "d1", type: "owe", person: "Prêt BCP", amount: 120000, remaining: 18000, minimumPayment: 4200, category: "Dette" }];
-const MOCK_PLAN = { totalIncome: 32500, fixedCharges: 9500, debtMinimums: 4200, variableEstimate: 4800, freeMoney: 14000, snowballSuggestion: 7000, savingsSuggestion: 4200, leisureSuggestion: 2800, alerts: [] };
 
-// 12-month projection mock
+const MOCK_DEBTS = [
+  { id: "d1", type: "owe", person: "Prêt BCP", amount: 120000, remaining: 18000, minimumPayment: 4200, category: "Dette" },
+];
+
+const MOCK_PLAN = {
+  totalIncome: 32500,
+  fixedCharges: 9500,
+  debtMinimums: 4200,
+  variableEstimate: 4800,
+  freeMoney: 14000,
+  snowballSuggestion: 7000,
+  savingsSuggestion: 4200,
+  leisureSuggestion: 2800,
+  alerts: [] as string[],
+};
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
+type Income = typeof MOCK_INCOMES[0];
+type ChecklistItem = typeof MOCK_CHECKLIST[0] & { hasTotal?: boolean; category?: string };
+type Saving = typeof MOCK_SAVINGS[0];
+type Debt = typeof MOCK_DEBTS[0];
+type Plan = typeof MOCK_PLAN;
+
+type ProjectionPoint = {
+  month: string;
+  label: string;
+  projectedIncome: number;
+  projectedExpenses: number;
+  projectedBalance: number;
+};
+
+type SixMonthPoint = {
+  month: string;
+  Revenus: number;
+  Dépenses: number;
+};
+
+// ─── Mock projection data ──────────────────────────────────────────────────────
 const NOW = new Date();
-const MOCK_PROJECTION = Array.from({ length: 12 }, (_, i) => {
+
+const MOCK_PROJECTION: ProjectionPoint[] = Array.from({ length: 12 }, (_, i) => {
   const d = new Date(NOW.getFullYear(), i, 1);
   const label = d.toLocaleDateString("fr-FR", { month: "short" });
   const income = 30000 + Math.round(Math.random() * 5000);
   const expenses = 18000 + Math.round(Math.random() * 4000);
-  return { month: `${NOW.getFullYear()}-${String(i + 1).padStart(2, "0")}`, label, projectedIncome: income, projectedExpenses: expenses, projectedBalance: (income - expenses) * (i + 1) * 0.7 };
+  return {
+    month: `${NOW.getFullYear()}-${String(i + 1).padStart(2, "0")}`,
+    label,
+    projectedIncome: income,
+    projectedExpenses: expenses,
+    projectedBalance: (income - expenses) * (i + 1) * 0.7,
+  };
 });
 
-// 6-month bar data mock
-const MOCK_6M = Array.from({ length: 6 }, (_, i) => {
+const MOCK_6M: SixMonthPoint[] = Array.from({ length: 6 }, (_, i) => {
   const d = new Date(NOW.getFullYear(), NOW.getMonth() - (5 - i), 1);
   return {
     month: d.toLocaleDateString("fr-FR", { month: "short" }),
@@ -48,8 +90,7 @@ const MOCK_6M = Array.from({ length: 6 }, (_, i) => {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-// Coach IA banner
-function CoachBanner({ message }) {
+function CoachBanner({ message }: { message: string }) {
   return (
     <div style={{ background: "linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%)", border: "1.5px solid #BFDBFE", borderRadius: 20, padding: "14px 16px", display: "flex", gap: 10, alignItems: "flex-start" }}>
       <span style={{ fontSize: 22, lineHeight: 1 }}>💡</span>
@@ -61,8 +102,7 @@ function CoachBanner({ message }) {
   );
 }
 
-// KPI card
-function KpiCard({ label, value, color, bg, icon }) {
+function KpiCard({ label, value, color, bg, icon }: { label: string; value: string; color: string; bg: string; icon: string }) {
   return (
     <div style={{ background: bg, borderRadius: 20, padding: "16px 14px", flex: 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
@@ -74,8 +114,7 @@ function KpiCard({ label, value, color, bg, icon }) {
   );
 }
 
-// Section card wrapper
-function Card({ children, style = {} }) {
+function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <div style={{ background: "#fff", borderRadius: 24, padding: "18px 16px", boxShadow: "0 1px 4px rgba(0,0,0,0.07)", ...style }}>
       {children}
@@ -83,19 +122,19 @@ function Card({ children, style = {} }) {
   );
 }
 
-function SectionLabel({ children }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p style={{ fontSize: 10, fontWeight: 800, color: "#8896B0", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 14 }}>{children}</p>;
 }
 
 // ─── Health score gauge ───────────────────────────────────────────────────────
-function HealthGauge({ score = 84 }) {
+function HealthGauge({ score = 84 }: { score?: number }) {
   const [displayed, setDisplayed] = useState(0);
-  const raf = useRef(null);
+  const raf = useRef<number | null>(null);
 
   useEffect(() => {
-    let start = null;
+    let start: number | null = null;
     const duration = 1200;
-    const animate = (ts) => {
+    const animate = (ts: number) => {
       if (!start) start = ts;
       const progress = Math.min((ts - start) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
@@ -103,19 +142,17 @@ function HealthGauge({ score = 84 }) {
       if (progress < 1) raf.current = requestAnimationFrame(animate);
     };
     raf.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf.current);
+    return () => { if (raf.current) cancelAnimationFrame(raf.current); };
   }, [score]);
 
   const color = score >= 80 ? "#16A34A" : score >= 60 ? "#2563EB" : score >= 40 ? "#D97706" : "#DC2626";
   const label = score >= 80 ? "Excellent" : score >= 60 ? "Bien" : score >= 40 ? "À améliorer" : "Fragile";
 
-  // SVG arc
   const R = 68, cx = 90, cy = 90;
-  const startAngle = -210, endAngle = 30; // 240° sweep
-  const toRad = (a) => (a * Math.PI) / 180;
-  const arcX = (a) => cx + R * Math.cos(toRad(a));
-  const arcY = (a) => cy + R * Math.sin(toRad(a));
-  const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
+  const startAngle = -210, endAngle = 30;
+  const toRad = (a: number) => (a * Math.PI) / 180;
+  const arcX = (a: number) => cx + R * Math.cos(toRad(a));
+  const arcY = (a: number) => cy + R * Math.sin(toRad(a));
   const fillAngle = startAngle + (displayed / 100) * (endAngle - startAngle);
 
   const trackD = `M ${arcX(startAngle)} ${arcY(startAngle)} A ${R} ${R} 0 1 1 ${arcX(endAngle)} ${arcY(endAngle)}`;
@@ -148,13 +185,13 @@ function HealthGauge({ score = 84 }) {
   );
 }
 
-// ─── Income Statement (P&L) ───────────────────────────────────────────────────
-function IncomeStatement({ plan }) {
+// ─── Income Statement ─────────────────────────────────────────────────────────
+function IncomeStatement({ plan }: { plan: Plan }) {
   const rows = [
-    { label: "Revenus", amount: plan.totalIncome, sign: "+", color: "#16A34A", bold: false },
-    { label: "Charges fixes", amount: plan.fixedCharges, sign: "−", color: "#DC2626", bold: false },
-    { label: "Paiements de dettes", amount: plan.debtMinimums, sign: "−", color: "#DC2626", bold: false },
-    { label: "Dépenses variables", amount: plan.variableEstimate, sign: "−", color: "#D97706", bold: false },
+    { label: "Revenus", amount: plan.totalIncome, sign: "+", color: "#16A34A" },
+    { label: "Charges fixes", amount: plan.fixedCharges, sign: "−", color: "#DC2626" },
+    { label: "Paiements de dettes", amount: plan.debtMinimums, sign: "−", color: "#DC2626" },
+    { label: "Dépenses variables", amount: plan.variableEstimate, sign: "−", color: "#D97706" },
   ];
   const netPct = plan.totalIncome > 0 ? Math.round((plan.freeMoney / plan.totalIncome) * 100) : 0;
 
@@ -173,11 +210,9 @@ function IncomeStatement({ plan }) {
           <p style={{ fontSize: 11, color: "#8896B0" }}>{netPct}% net</p>
         </div>
       </div>
-      {/* Progress bar */}
       <div style={{ marginTop: 10, height: 6, background: "#F1F3F9", borderRadius: 99, overflow: "hidden" }}>
         <div style={{ height: "100%", width: `${Math.min(100, netPct)}%`, background: plan.freeMoney >= 0 ? "#16A34A" : "#DC2626", borderRadius: 99, transition: "width 0.8s ease" }} />
       </div>
-      {/* Suggestions */}
       {plan.freeMoney > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 14 }}>
           {[
@@ -197,14 +232,24 @@ function IncomeStatement({ plan }) {
 }
 
 // ─── Balance Sheet ────────────────────────────────────────────────────────────
-function BalanceSheet({ savings, debts }) {
+function BalanceSheet({ savings, debts }: { savings: Saving[]; debts: Debt[] }) {
   const totalSavings = savings.reduce((s, g) => s + g.saved, 0);
-  const totalProjects = 12000; // mock
+  const totalProjects = 12000;
   const totalAssets = totalSavings + totalProjects;
   const totalDebt = debts.filter((d) => d.type === "owe").reduce((s, d) => s + d.remaining, 0);
   const netWorth = totalAssets - totalDebt;
 
-  const Section = ({ title, rows, total, totalColor }) => (
+  const Section = ({
+    title,
+    rows,
+    total,
+    totalColor,
+  }: {
+    title: string;
+    rows: { label: string; amount: number }[];
+    total: number;
+    totalColor: string;
+  }) => (
     <div style={{ marginBottom: 16 }}>
       <p style={{ fontSize: 12, fontWeight: 800, color: "#1E3A5F", marginBottom: 8 }}>{title}</p>
       {rows.map((r, i) => (
@@ -235,9 +280,15 @@ function BalanceSheet({ savings, debts }) {
 }
 
 // ─── Checklist ────────────────────────────────────────────────────────────────
-function ChecklistSection({ checklist, onToggle, onDeleteRecurring }) {
-  const [editingId, setEditingId] = useState(null);
-  const [editAmount, setEditAmount] = useState("");
+function ChecklistSection({
+  checklist,
+  onToggle,
+  onDeleteRecurring,
+}: {
+  checklist: ChecklistItem[];
+  onToggle?: (item: ChecklistItem) => void;
+  onDeleteRecurring?: (id: string) => void;
+}) {
   const paidCount = checklist.filter((i) => i.paid).length;
 
   return (
@@ -280,7 +331,15 @@ function ChecklistSection({ checklist, onToggle, onDeleteRecurring }) {
 }
 
 // ─── Income List ──────────────────────────────────────────────────────────────
-function IncomeList({ incomes, onDelete, onAdd }) {
+function IncomeList({
+  incomes,
+  onDelete,
+  onAdd,
+}: {
+  incomes: Income[];
+  onDelete?: (id: string) => void;
+  onAdd: () => void;
+}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       {incomes.length === 0 && (
@@ -312,7 +371,15 @@ function IncomeList({ incomes, onDelete, onAdd }) {
 }
 
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
-const ChartTooltip = ({ active, payload, label }) => {
+const ChartTooltip = ({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ dataKey: string; color: string; name: string; value: number }>;
+  label?: string;
+}) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: "#fff", border: "1px solid #E8EDF5", borderRadius: 12, padding: "8px 12px", fontSize: 12 }}>
@@ -325,15 +392,14 @@ const ChartTooltip = ({ active, payload, label }) => {
 };
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
-export default function BilanDashboard({ transactions = [] }) {
-  const [incomes, setIncomes] = useState(MOCK_INCOMES);
-  const [checklist, setChecklist] = useState(MOCK_CHECKLIST);
-  const [savings] = useState(MOCK_SAVINGS);
-  const [debts] = useState(MOCK_DEBTS);
-  const plan = MOCK_PLAN;
-  const projection = MOCK_PROJECTION;
+export default function BilanDashboard({ transactions = [] }: { transactions?: unknown[] }) {
+  const [incomes, setIncomes] = useState<Income[]>(MOCK_INCOMES);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(MOCK_CHECKLIST);
+  const [savings] = useState<Saving[]>(MOCK_SAVINGS);
+  const [debts] = useState<Debt[]>(MOCK_DEBTS);
+  const plan: Plan = MOCK_PLAN;
+  const projection: ProjectionPoint[] = MOCK_PROJECTION;
 
-  const totalIncome = incomes.reduce((s, i) => s + i.amount, 0);
   const totalSavings = savings.reduce((s, g) => s + g.saved, 0);
   const totalDebt = debts.filter((d) => d.type === "owe").reduce((s, d) => s + d.remaining, 0);
   const netWorth = totalSavings + 12000 - totalDebt;
@@ -342,11 +408,9 @@ export default function BilanDashboard({ transactions = [] }) {
 
   const tip = plan.alerts?.[0] ?? `💰 Tu peux épargner ${fmt(plan.savingsSuggestion)} ce mois tout en remboursant ${fmt(plan.snowballSuggestion)} de dettes.`;
 
-  function toggleItem(item) {
+  function toggleItem(item: ChecklistItem) {
     setChecklist((prev) => prev.map((c) => (c.id === item.id ? { ...c, paid: !c.paid } : c)));
   }
-
-  const currentYM = `${NOW.getFullYear()}-${String(NOW.getMonth() + 1).padStart(2, "0")}`;
 
   return (
     <div style={{ fontFamily: "'Inter', system-ui, sans-serif", maxWidth: 420, margin: "0 auto", padding: "16px 14px 40px", background: "#F4F6FB", minHeight: "100vh", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -380,7 +444,7 @@ export default function BilanDashboard({ transactions = [] }) {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#F1F3F9" />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#8896B0" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 9, fill: "#8896B0" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+            <YAxis tick={{ fontSize: 9, fill: "#8896B0" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
             <Tooltip content={<ChartTooltip />} />
             <ReferenceLine y={0} stroke="#DC2626" strokeDasharray="4 4" />
             <Area type="monotone" dataKey="projectedBalance" stroke="#7C3AED" strokeWidth={2.5} fill="url(#patGrad)" name="Patrimoine net" dot={false} />
@@ -401,7 +465,7 @@ export default function BilanDashboard({ transactions = [] }) {
           <BarChart data={MOCK_6M} barGap={4} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#F1F3F9" />
             <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#8896B0" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 9, fill: "#8896B0" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+            <YAxis tick={{ fontSize: 9, fill: "#8896B0" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
             <Tooltip content={<ChartTooltip />} />
             <Bar dataKey="Revenus" fill="#16A34A" radius={[6, 6, 0, 0]} />
             <Bar dataKey="Dépenses" fill="#DC2626" radius={[6, 6, 0, 0]} />
