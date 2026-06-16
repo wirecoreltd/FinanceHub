@@ -284,10 +284,12 @@ function BudgetSection({ transactions }: { transactions: Transaction[] }) {
       const [b, r] = await Promise.all([getBudgets(), getRecurringPayments()])
       setBudgets(b); setRecurringPayments(r)
 
+     const { data: { user } } = await supabase.auth.getUser()
       const { data: dh } = await supabase
-      .from('debt_payment_history')
-      .select('amount, category')
-      .like('paid_at', `${ym}%`)
+        .from('debt_payment_history')
+        .select('amount, category')
+        .eq('user_id', user!.id)
+        .like('paid_at', `${ym}%`)
       setDebtPayments((dh ?? []).map(r => ({ category: r.category ?? 'Autre', amount: Number(r.amount) })))
     }
     load().finally(() => setLoading(false))
