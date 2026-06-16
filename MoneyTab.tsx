@@ -286,24 +286,29 @@ function BudgetSection({ transactions }: { transactions: Transaction[] }) {
 
    const { data: { user } } = await supabase.auth.getUser()
 
-// 1. Récupère les IDs des dettes de l'utilisateur
-const { data: userDebts } = await supabase
-  .from('debts')
-  .select('id')
-  .eq('user_id', user!.id)
-
-const debtIds = (userDebts ?? []).map(d => d.id)
-
-// 2. Récupère les paiements du mois pour ces dettes
-const { data: dh, error } = await supabase
-  .from('debt_payment_history')
-  .select('amount, category')
-  .in('debt_id', debtIds.length > 0 ? debtIds : ['00000000-0000-0000-0000-000000000000'])
-  .gte('paid_at', `${ym}-01`)
-  .lte('paid_at', `${ym}-31`)
-
-console.log('dh:', dh, 'error:', error)
-setDebtPayments((dh ?? []).map(r => ({ category: r.category ?? 'Autre', amount: Number(r.amount) })))
+      // 1. Récupère les IDs des dettes de l'utilisateur
+      const { data: userDebts } = await supabase
+        .from('debts')
+        .select('id')
+        .eq('user_id', user!.id)
+      
+      const debtIds = (userDebts ?? []).map(d => d.id)
+      
+      // 2. Calcule le vrai dernier jour du mois
+      const [year, month] = ym.split('-').map(Number)
+      const lastDay = new Date(year, month, 0).getDate() // 0 = dernier jour du mois précédent
+      const lastDate = `${ym}-${String(lastDay).padStart(2, '0')}`
+      
+      // 3. Récupère les paiements du mois pour ces dettes
+      const { data: dh, error } = await supabase
+        .from('debt_payment_history')
+        .select('amount, category')
+        .in('debt_id', debtIds.length > 0 ? debtIds : ['00000000-0000-0000-0000-000000000000'])
+        .gte('paid_at', `${ym}-01`)
+        .lte('paid_at', lastDate)
+      
+      console.log('dh:', dh, 'error:', error)
+      setDebtPayments((dh ?? []).map(r => ({ category: r.category ?? 'Autre', amount: Number(r.amount) })))
     }
     load().finally(() => setLoading(false))
   }, [ym])
