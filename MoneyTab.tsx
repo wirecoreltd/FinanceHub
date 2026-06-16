@@ -513,7 +513,7 @@ function DettesSection() {
 
       <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-100 rounded-2xl">
         <span className="text-base">💡</span>
-        <p className="text-xs text-red-700 leading-relaxed"><strong>Snowball :</strong> Rembourse la plus petite dette en premier pour créer de l'élan.</p>
+        <p className="text-xs text-red-700 leading-relaxed"><strong>Snowball :</strong> Dette vs Dépense :</strong> Une dette c'est une somme totale à rembourser sur le temps. Le Coach utilise la méthode <strong>Snowball</strong> pour t'aider à les éliminer dans le bon ordre.</p>
       </div>
 
       <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary w-full gap-2" style={{ backgroundColor: '#DC2626' }}>
