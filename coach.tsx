@@ -155,11 +155,11 @@ function ActionCard({ action, index }: { action: CoachAnalysis['actions'][0]; in
 function CoachThinking({ name }: { name: string }) {
   const [phase, setPhase] = useState(0)
   const phases = [
-    `J'analyse ton profil, ${name}...`,
-    'Je regarde tes dettes et ton épargne...',
-    'J'identifie les contradictions...',
-    'Je construis ton plan d'action...',
-  ]
+      `J'analyse ton profil, ${name}...`,
+      'Je regarde tes dettes et ton épargne...',
+      `J'identifie les contradictions...`,
+      `Je construis ton plan d'action...`,
+    ]
 
   useEffect(() => {
     const t = setInterval(() => setPhase(p => Math.min(p + 1, phases.length - 1)), 1400)
