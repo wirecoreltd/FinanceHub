@@ -79,7 +79,11 @@ export default function LoginPage() {
       <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-xl space-y-5">
 
         <div className="text-center">
-          <p className="text-4xl mb-2">💰</p>
+          <img
+            src="/logo.png"
+            alt="MoneyPilot"
+            className="w-16 h-16 mx-auto mb-2 object-contain"
+          />
 
           <h1 className="text-2xl font-bold text-ink">
             MoneyPilot
