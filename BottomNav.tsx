@@ -35,9 +35,9 @@ export default function BottomNav({ active, onChange }: {
                         min-h-screen p-5 fixed top-0 left-0 gap-1">
         <div className="mb-8 px-2 pt-2">
           <span className="text-2xl font-bold text-ink tracking-tight">
-            Mon<span className="text-accent">Budget</span>
+            Money<span className="text-accent">Pilot</span>
           </span>
-          <p className="text-xs text-ink-soft mt-1">Finances claires · Mauritius 🇲🇺</p>
+          <p className="text-xs text-ink-soft mt-1">Votre copilote financier au quotidien.</p>
         </div>
         {nav.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => onChange(id)}
