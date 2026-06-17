@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { RefreshCw, ChevronRight, AlertTriangle, TrendingUp, Shield, Zap } from 'lucide-react'
-import { getUserProfile, getDebts, getSavings, UserProfile } from '@/lib/db'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface UserProfile {
@@ -193,6 +192,8 @@ function CoachThinking({ name }: { name: string }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
+import { getUserProfile, getDebts, getSavings, UserProfile } from '@/lib/db'
+
 export default function CoachPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [analysis, setAnalysis] = useState<CoachAnalysis | null>(null)
