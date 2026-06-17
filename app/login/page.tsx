@@ -80,7 +80,7 @@ export default function LoginPage() {
 
         <div className="text-center">
           <img
-            src="/logo.png"
+            src="/moneypilot.png"
             alt="MoneyPilot"
             className="w-16 h-16 mx-auto mb-2 object-contain"
           />
