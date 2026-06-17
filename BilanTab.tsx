@@ -272,7 +272,7 @@ function BalanceSheet({ savings, debts }: { savings: Saving[]; debts: Debt[] }) 
       <Section title="Passifs" rows={[{ label: "Dettes personnelles", amount: totalDebt }]} total={totalDebt} totalColor="#DC2626" />
       <div style={{ height: 1, background: "#E8EDF5", margin: "4px 0 12px" }} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 14, fontWeight: 800, color: "#1E3A5F" }}>Patrimoine net</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: "#1E3A5F" }}>Situation financière net</span>
         <span style={{ fontFamily: "monospace", fontSize: 20, fontWeight: 800, color: "#7C3AED" }}>{fmt(netWorth)}</span>
       </div>
     </div>
@@ -422,16 +422,16 @@ export default function BilanDashboard({ transactions = [] }: { transactions?: u
       <div>
         <SectionLabel>② KPI Principaux</SectionLabel>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <KpiCard label="Patrimoine net" value={fmt(netWorth)} color="#7C3AED" bg="#F5F3FF" icon="💎" />
+          <KpiCard label="Situation financière net" value={fmt(netWorth)} color="#7C3AED" bg="#F5F3FF" icon="💎" />
           <KpiCard label="Dette totale" value={fmt(totalDebt)} color="#DC2626" bg="#FEF2F2" icon="💳" />
           <KpiCard label="Épargne totale" value={fmt(totalSavings)} color="#16A34A" bg="#F0FDF4" icon="🐖" />
           <KpiCard label="Cashflow du mois" value={fmt(cashflow)} color="#2563EB" bg="#EFF6FF" icon="📈" />
         </div>
       </div>
 
-      {/* ③ Évolution du patrimoine */}
+      {/* ③ Évolution du Situation financière */}
       <Card>
-        <SectionLabel>③ Évolution du patrimoine</SectionLabel>
+        <SectionLabel>③ Évolution du Situation financière</SectionLabel>
         <p style={{ fontSize: 24, fontWeight: 800, fontFamily: "monospace", color: endBalance >= 0 ? "#16A34A" : "#DC2626", marginBottom: 2 }}>{fmt(endBalance)}</p>
         <p style={{ fontSize: 11, color: "#8896B0", marginBottom: 14 }}>solde projeté en décembre {NOW.getFullYear()}</p>
         <ResponsiveContainer width="100%" height={160}>
@@ -447,7 +447,7 @@ export default function BilanDashboard({ transactions = [] }: { transactions?: u
             <YAxis tick={{ fontSize: 9, fill: "#8896B0" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
             <Tooltip content={<ChartTooltip />} />
             <ReferenceLine y={0} stroke="#DC2626" strokeDasharray="4 4" />
-            <Area type="monotone" dataKey="projectedBalance" stroke="#7C3AED" strokeWidth={2.5} fill="url(#patGrad)" name="Patrimoine net" dot={false} />
+            <Area type="monotone" dataKey="projectedBalance" stroke="#7C3AED" strokeWidth={2.5} fill="url(#patGrad)" name="Situation financière net" dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </Card>
