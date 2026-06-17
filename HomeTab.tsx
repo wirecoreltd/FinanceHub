@@ -90,7 +90,6 @@ export default function HomeTab({ transactions, onUpdate, profile }: Props) {
   const health = computeHealthScore(transactions, [], [], [])
   const plan = computeCoachPlan([], [], [], ym)
   const netWorth = totalSavings - totalDebt
-  const monthName = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
   const categories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
 
   const healthColor = health.score >= 80 ? '#16A34A' : health.score >= 60 ? '#2563EB' : health.score >= 40 ? '#D97706' : '#DC2626'
@@ -149,38 +148,11 @@ export default function HomeTab({ transactions, onUpdate, profile }: Props) {
   return (
     <div className="space-y-4">
 
-      {/* ── Carte héro solde ──────────────────────────────────────────────── */}
-      <div className={`rounded-3xl p-5 text-white ${balance >= 0
-        ? 'bg-gradient-to-br from-accent to-blue-700'
-        : 'bg-gradient-to-br from-danger to-red-700'}`}>
-        <p className="text-xs font-semibold opacity-70 uppercase tracking-widest mb-1 capitalize">{monthName}</p>
-        <p className="text-5xl font-bold font-mono tracking-tight mb-1">{formatAmount(balance)}</p>
-        <p className="text-xs opacity-60 mb-5">solde disponible</p>
-        <div className="flex gap-5">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-              <TrendingUp size={14} className="text-white" />
-            </div>
-            <div>
-              <p className="text-[10px] opacity-60 uppercase tracking-wide">Revenus</p>
-              <p className="text-sm font-bold font-mono">{formatAmount(income)}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-              <TrendingDown size={14} className="text-white" />
-            </div>
-            <div>
-              <p className="text-[10px] opacity-60 uppercase tracking-wide">Dépenses</p>
-              <p className="text-sm font-bold font-mono">{formatAmount(expenses)}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 4 KPIs ───────────────────────────────────────────────────────── */}
+      {/* ── 6 KPIs ───────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
         {[
+          { label: 'Revenus', value: formatAmount(income), icon: '💰', bg: 'bg-green-50', color: 'text-green-700', border: 'border-green-100' },
+          { label: 'Dépenses', value: formatAmount(expenses), icon: '💸', bg: 'bg-orange-50', color: 'text-orange-700', border: 'border-orange-100' },
           { label: 'Patrimoine net', value: formatAmount(netWorth), icon: '💎', bg: 'bg-purple-50', color: 'text-purple-700', border: 'border-purple-100' },
           { label: 'Épargne totale', value: formatAmount(totalSavings), icon: '🐖', bg: 'bg-green-50', color: 'text-green-700', border: 'border-green-100' },
           { label: 'Dette restante', value: formatAmount(totalDebt), icon: '💳', bg: 'bg-red-50', color: 'text-red-700', border: 'border-red-100' },
