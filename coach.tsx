@@ -1,52 +1,28 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { RefreshCw, ChevronRight, AlertTriangle, TrendingUp, Shield, Zap } from 'lucide-react'
+import { getUserProfile } from '@/lib/db'
+import type { UserProfile } from '@/lib/db'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface UserProfile {
-  firstName: string
-  situation: string
-  children: number
-  monthlyIncome: number
-  incomeType: string
-  mainGoal: string
-  hasDebts: boolean
-  expenseLevel: string
-  debtType: string
-  debtAmount?: number
-  savingsLevel: string
-  stressLevel: string
-  initialScore: number
-  coachPlan?: string
-  currency: string
-}
-
 interface CoachAnalysis {
-  greeting: string           // Phrase d'accroche personnalisée, directe
-  situation: string          // Diagnostic brutal en 1-2 phrases
+  greeting: string
+  situation: string
   urgency: 'low' | 'medium' | 'high' | 'critical'
   score: number
-  scoreEvolution: number     // +/- par rapport au score initial
-  contradictions: string[]   // Ce que l'utilisateur fait qui se contredit
+  scoreEvolution: number
+  contradictions: string[]
   actions: {
-    label: string            // "Cette semaine", "Ce mois-ci", "Dans 3 mois"
+    label: string
     title: string
     detail: string
-    impact: string           // "Libère +4 500 Rs/mois"
+    impact: string
     priority: 'urgent' | 'important' | 'strategy'
   }[]
-  insight: string            // La phrase que seul un vrai coach dirait
+  insight: string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function loadProfile(): UserProfile | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem('moneypilot_profile')
-    return raw ? JSON.parse(raw) : null
-  } catch { return null }
-}
-
 function urgencyConfig(u: CoachAnalysis['urgency']) {
   return {
     low:      { color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', label: 'Situation saine' },
@@ -112,14 +88,8 @@ function ActionCard({ action, index }: { action: CoachAnalysis['actions'][0]; in
   const Icon = cfg.icon
 
   return (
-    <div
-      className={`rounded-2xl border-2 overflow-hidden transition-all
-        ${open ? 'border-gray-200 shadow-md' : 'border-gray-100'}`}
-    >
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 p-4 text-left bg-white"
-      >
+    <div className={`rounded-2xl border-2 overflow-hidden transition-all ${open ? 'border-gray-200 shadow-md' : 'border-gray-100'}`}>
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center gap-3 p-4 text-left bg-white">
         <div className={`w-8 h-8 rounded-xl ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
           <Icon size={14} className="text-white" strokeWidth={2.5} />
         </div>
@@ -130,12 +100,8 @@ function ActionCard({ action, index }: { action: CoachAnalysis['actions'][0]; in
           </div>
           <p className="text-sm font-bold text-gray-800 truncate">{action.title}</p>
         </div>
-        <ChevronRight
-          size={16}
-          className={`text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}
-        />
+        <ChevronRight size={16} className={`text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
-
       {open && (
         <div className="px-4 pb-4 bg-white border-t border-gray-50">
           <p className="text-sm text-gray-600 leading-relaxed mt-3">{action.detail}</p>
@@ -155,11 +121,11 @@ function ActionCard({ action, index }: { action: CoachAnalysis['actions'][0]; in
 function CoachThinking({ name }: { name: string }) {
   const [phase, setPhase] = useState(0)
   const phases = [
-      `J'analyse ton profil, ${name}...`,
-      'Je regarde tes dettes et ton épargne...',
-      `J'identifie les contradictions...`,
-      `Je construis ton plan d'action...`,
-    ]
+    `J'analyse ton profil, ${name}...`,
+    'Je regarde tes dettes et ton épargne...',
+    `J'identifie les contradictions...`,
+    `Je construis ton plan d'action...`,
+  ]
 
   useEffect(() => {
     const t = setInterval(() => setPhase(p => Math.min(p + 1, phases.length - 1)), 1400)
@@ -180,11 +146,7 @@ function CoachThinking({ name }: { name: string }) {
       </div>
       <div className="flex gap-1.5">
         {[0, 1, 2, 3].map(i => (
-          <div
-            key={i}
-            className="w-2 h-2 rounded-full bg-violet-400 animate-bounce"
-            style={{ animationDelay: `${i * 0.15}s` }}
-          />
+          <div key={i} className="w-2 h-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
         ))}
       </div>
     </div>
@@ -192,8 +154,6 @@ function CoachThinking({ name }: { name: string }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-import { getUserProfile, getDebts, getSavings, UserProfile } from '@/lib/db'
-
 export default function CoachPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [analysis, setAnalysis] = useState<CoachAnalysis | null>(null)
@@ -203,7 +163,7 @@ export default function CoachPage() {
 
   useEffect(() => {
     async function init() {
-      const p = await getUserProfile()   // ← async Supabase au lieu de localStorage
+      const p = await getUserProfile()
       setProfile(p)
       if (p && !hasFetched.current) {
         hasFetched.current = true
@@ -213,17 +173,6 @@ export default function CoachPage() {
       }
     }
     init()
-  }, [])
-  
-  useEffect(() => {
-    const p = loadProfile()
-    setProfile(p)
-    if (p && !hasFetched.current) {
-      hasFetched.current = true
-      fetchAnalysis(p)
-    } else {
-      setLoading(false)
-    }
   }, [])
 
   async function fetchAnalysis(p: UserProfile) {
@@ -243,7 +192,12 @@ Devise : ${p.currency}
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 1000,
@@ -261,27 +215,27 @@ STYLE :
 
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :
 {
-  "greeting": "Phrase d'accroche directe et personnalisée qui montre que tu as analysé sa situation (max 20 mots)",
-  "situation": "Diagnostic honnête en 2 phrases maximum — dis ce qui ne va vraiment pas",
+  "greeting": "Phrase d'accroche directe et personnalisée (max 20 mots)",
+  "situation": "Diagnostic honnête en 2 phrases maximum",
   "urgency": "low|medium|high|critical",
-  "score": number (0-100, peut différer du score initial selon ce que tu vois),
-  "scoreEvolution": number (différence avec le score initial, positif ou négatif),
-  "contradictions": ["contradiction 1 si existe", "contradiction 2 si existe"],
+  "score": number,
+  "scoreEvolution": number,
+  "contradictions": ["contradiction 1", "contradiction 2"],
   "actions": [
     {
       "label": "Cette semaine|Ce mois-ci|Dans 3 mois|Dans 6 mois",
       "title": "Titre court et actionnable",
-      "detail": "Explication concrète avec chiffres en Rs — quoi faire exactement et pourquoi",
-      "impact": "Impact concret ex: Libère +3 500 Rs/mois ou Réduit le stress financier de 40%",
+      "detail": "Explication concrète avec chiffres en Rs",
+      "impact": "Impact concret ex: Libère +3 500 Rs/mois",
       "priority": "urgent|important|strategy"
     }
   ],
-  "insight": "La phrase-clé que seul un vrai coach financier dirait à cette personne — ce qu'elle ne veut peut-être pas entendre mais dont elle a besoin"
+  "insight": "La phrase-clé que seul un vrai coach dirait"
 }
 
-Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
-          messages: [{ role: 'user', content: context }]
-        })
+Donne 2 à 4 actions maximum.`,
+          messages: [{ role: 'user', content: context }],
+        }),
       })
 
       const data = await res.json()
@@ -291,23 +245,20 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
       setAnalysis(parsed)
       setLastUpdated(new Date())
     } catch {
-      // Fallback si API échoue
       setAnalysis({
-        greeting: `${p.firstName}, j'ai analysé ta situation.`,
+        greeting: `${p.firstName}, voici ton analyse.`,
         situation: "Impossible de charger l'analyse complète. Vérifie ta connexion et réessaie.",
         urgency: 'medium',
-        score: p.initialScore,
+        score: 50,
         scoreEvolution: 0,
         contradictions: [],
-        actions: [
-          {
-            label: 'Cette semaine',
-            title: 'Note toutes tes dépenses fixes',
-            detail: 'Loyer, abonnements, crédits — liste tout ce qui sort automatiquement chaque mois.',
-            impact: 'Visibilité totale sur tes finances',
-            priority: 'urgent',
-          }
-        ],
+        actions: [{
+          label: 'Cette semaine',
+          title: 'Note toutes tes dépenses fixes',
+          detail: 'Loyer, abonnements, crédits — liste tout ce qui sort automatiquement chaque mois.',
+          impact: 'Visibilité totale sur tes finances',
+          priority: 'urgent',
+        }],
         insight: "La connaissance de ses finances est le premier pas vers la liberté financière.",
       })
       setLastUpdated(new Date())
@@ -323,7 +274,6 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
     }
   }
 
-  // ── Render ──────────────────────────────────────────────────────────────────
   if (!profile) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -334,13 +284,9 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 pb-32 md:pb-10 space-y-5">
-
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">
-            Coach <span className="text-violet-600">IA</span>
-          </h1>
+          <h1 className="text-2xl font-black text-gray-900">Coach <span className="text-violet-600">IA</span></h1>
           {lastUpdated && (
             <p className="text-xs text-gray-400 mt-0.5">
               Analysé {lastUpdated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -350,9 +296,7 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
         <button
           onClick={refresh}
           disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 text-violet-600
-                     text-xs font-bold border border-violet-100 active:scale-95 transition-all
-                     disabled:opacity-40"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 text-violet-600 text-xs font-bold border border-violet-100 active:scale-95 transition-all disabled:opacity-40"
         >
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           Actualiser
@@ -363,7 +307,6 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
         <CoachThinking name={profile.firstName} />
       ) : analysis ? (
         <>
-          {/* Greeting — coach speaks first */}
           <div className="bg-gradient-to-br from-violet-600 to-violet-800 rounded-3xl p-5 shadow-xl shadow-violet-200">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
@@ -376,7 +319,6 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
             </div>
           </div>
 
-          {/* Score + urgency */}
           <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
             <ScoreRing score={analysis.score} evolution={analysis.scoreEvolution} />
             <div className={`rounded-2xl px-4 py-3 border ${urgencyConfig(analysis.urgency).bg} ${urgencyConfig(analysis.urgency).border}`}>
@@ -392,12 +334,9 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
             </div>
           </div>
 
-          {/* Contradictions — the uncomfortable truth */}
-          {analysis.contradictions && analysis.contradictions.length > 0 && (
+          {analysis.contradictions?.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
-              <p className="text-xs font-black text-amber-700 uppercase tracking-widest">
-                ⚡ Ce que je dois te dire
-              </p>
+              <p className="text-xs font-black text-amber-700 uppercase tracking-widest">⚡ Ce que je dois te dire</p>
               {analysis.contradictions.map((c, i) => (
                 <div key={i} className="flex items-start gap-2">
                   <span className="text-amber-500 mt-0.5 flex-shrink-0">▸</span>
@@ -407,11 +346,8 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
             </div>
           )}
 
-          {/* Action plan */}
           <div>
-            <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
-              Plan d'action
-            </p>
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Plan d'action</p>
             <div className="space-y-3">
               {analysis.actions.map((action, i) => (
                 <ActionCard key={i} action={action} index={i} />
@@ -419,14 +355,9 @@ Donne 2 à 4 actions maximum. Priorité à l'urgence réelle de la situation.`,
             </div>
           </div>
 
-          {/* Coach insight — the one line that matters */}
           <div className="bg-gray-900 rounded-2xl p-5">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
-              💡 Ce que tu dois retenir
-            </p>
-            <p className="text-white text-sm leading-relaxed font-medium italic">
-              "{analysis.insight}"
-            </p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">💡 Ce que tu dois retenir</p>
+            <p className="text-white text-sm leading-relaxed font-medium italic">"{analysis.insight}"</p>
           </div>
         </>
       ) : null}
