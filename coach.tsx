@@ -189,61 +189,17 @@ Objectif principal : ${p.mainGoal}
 Devise : ${p.currency}
 `.trim()
 
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '',
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          system: `Tu es un coach financier expert, direct et bienveillant. Tu parles en français.
-Tu reçois le profil financier complet d'un utilisateur mauricien.
+    try {     
+        const res = await fetch('/api/coach-analysis', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ context }),
+        })
+        const parsed: CoachAnalysis = await res.json()
+        setAnalysis(parsed)
+        setLastUpdated(new Date())
 
-TON RÔLE : Tu n'attends PAS qu'on te pose des questions. Tu analyses, tu identifies les problèmes réels, tu dis ce qui ne va pas (même si c'est inconfortable), et tu donnes un plan d'action concret et chiffré.
-
-STYLE :
-- Direct, comme un ami expert qui dit la vérité
-- Pas de politesse vide ("Super question !"), pas de généralités
-- Cite les chiffres réels de l'utilisateur
-- Identifie les contradictions (ex: veut investir mais a des dettes à taux élevé)
-- Actions chiffrées en Rs (roupies mauriciennes)
-
-Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :
-{
-  "greeting": "Phrase d'accroche directe et personnalisée (max 20 mots)",
-  "situation": "Diagnostic honnête en 2 phrases maximum",
-  "urgency": "low|medium|high|critical",
-  "score": number,
-  "scoreEvolution": number,
-  "contradictions": ["contradiction 1", "contradiction 2"],
-  "actions": [
-    {
-      "label": "Cette semaine|Ce mois-ci|Dans 3 mois|Dans 6 mois",
-      "title": "Titre court et actionnable",
-      "detail": "Explication concrète avec chiffres en Rs",
-      "impact": "Impact concret ex: Libère +3 500 Rs/mois",
-      "priority": "urgent|important|strategy"
-    }
-  ],
-  "insight": "La phrase-clé que seul un vrai coach dirait"
-}
-
-Donne 2 à 4 actions maximum.`,
-          messages: [{ role: 'user', content: context }],
-        }),
-      })
-
-      const data = await res.json()
-      const text = data.content?.[0]?.text || ''
-      const clean = text.replace(/```json|```/g, '').trim()
-      const parsed: CoachAnalysis = JSON.parse(clean)
-      setAnalysis(parsed)
-      setLastUpdated(new Date())
+      
     } catch {
       setAnalysis({
         greeting: `${p.firstName}, voici ton analyse.`,
