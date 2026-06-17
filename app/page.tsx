@@ -46,7 +46,7 @@ export default function Page() {
                       flex items-center justify-center">
         <div className="text-center text-white">
           <div className="text-5xl mb-4 animate-pulse">💰</div>
-          <p className="font-bold text-xl">MonBudget</p>
+          <p className="font-bold text-xl">MoneyPilot</p>
         </div>
       </div>
     )
