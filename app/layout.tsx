@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'MoneyPilot',
-  description: 'Gérez votre argent avec clarté',
+  description: 'Votre copilote financier au quotidien.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
