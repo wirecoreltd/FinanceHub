@@ -154,7 +154,7 @@ export default function HomeTab({ transactions, onUpdate, profile }: Props) {
           { label: 'Revenus', value: formatAmount(income), icon: '💰', bg: 'bg-green-50', color: 'text-green-700', border: 'border-green-100' },
           { label: 'Dépenses', value: formatAmount(expenses), icon: '💸', bg: 'bg-orange-50', color: 'text-orange-700', border: 'border-orange-100' },
           { label: 'Patrimoine net', value: formatAmount(netWorth), icon: '💎', bg: 'bg-purple-50', color: 'text-purple-700', border: 'border-purple-100' },
-          { label: 'Épargne totale', value: formatAmount(totalSavings), icon: '🐖', bg: 'bg-green-50', color: 'text-green-700', border: 'border-green-100' },
+          { label: 'Épargne totale', value: formatAmount(totalSavings), icon: '🪙', bg: 'bg-green-50', color: 'text-green-700', border: 'border-green-100' },
           { label: 'Dette restante', value: formatAmount(totalDebt), icon: '💳', bg: 'bg-red-50', color: 'text-red-700', border: 'border-red-100' },
           { label: 'Argent libre', value: formatAmount(plan.freeMoney > 0 ? plan.freeMoney : balance), icon: '📈', bg: 'bg-blue-50', color: 'text-blue-700', border: 'border-blue-100' },
         ].map((kpi) => (
