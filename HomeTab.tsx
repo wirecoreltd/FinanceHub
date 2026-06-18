@@ -7,6 +7,7 @@ import {
   currentYearMonth, UserProfile, getSavings, getDebts,
 } from '@/lib/storage'
 import CoachTip from './CoachTip'
+import { supabase } from '@/lib/supabase'
 
 interface Props {
   transactions: Transaction[]
@@ -25,6 +26,75 @@ const empty = {
   category: EXPENSE_CATEGORIES[0],
   note: '',
   date: new Date().toISOString().slice(0, 10),
+}
+
+// ─── Logo + slogan ──────────────────────────────────────────────────────────
+// Remplace LOGO_URL par le chemin de ton vrai logo (ex: '/logo.png') si tu en as un.
+// Tant que LOGO_URL est vide, un badge avec icône Wallet est utilisé à la place.
+const LOGO_URL = ''
+const APP_NAME = 'MoneyApp'
+const APP_SLOGAN = 'Votre copilote financier au quotidien.'
+
+function AppBrandHeader() {
+  return (
+    <div className="flex items-center justify-between gap-3 mb-1">
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-ink leading-tight">{APP_NAME}</p>
+        <p className="text-xs text-ink-soft leading-snug mt-0.5">{APP_SLOGAN}</p>
+      </div>
+      <div className="flex flex-col items-center gap-1 flex-shrink-0">
+        {LOGO_URL ? (
+          <img src={LOGO_URL} alt={APP_NAME} className="w-11 h-11 rounded-2xl object-cover" />
+        ) : (
+          <div className="w-11 h-11 rounded-2xl bg-accent-light flex items-center justify-center">
+            <Wallet size={22} className="text-accent" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Pensée positive du jour ──────────────────────────────────────────────────
+// Change chaque jour (stable toute la journée), centrée sur l'humain plus que sur l'argent.
+const DAILY_THOUGHTS = [
+  "Chaque petit pas que tu fais aujourd'hui compte, sois fier du chemin parcouru.",
+  "Prendre soin de tes finances, c'est aussi prendre soin de toi. Respire, tu avances bien.",
+  "Tu n'as pas besoin d'être parfait, juste un peu meilleur qu'hier.",
+  "Les erreurs d'argent ne définissent pas ta valeur. Continue d'apprendre, c'est déjà énorme.",
+  "Aujourd'hui, accorde-toi un moment de gratitude pour tout ce que tu as déjà construit.",
+  "La discipline d'aujourd'hui est la liberté de demain, mais profite aussi de l'instant présent.",
+  "Prends soin de ta santé mentale autant que de ton portefeuille, les deux comptent.",
+  "Tu fais de ton mieux avec ce que tu as, et c'est largement suffisant.",
+  "Un sourire offert aujourd'hui ne coûte rien et vaut une fortune.",
+  "Ta famille et tes proches sont ta vraie richesse, n'oublie pas de leur dire.",
+  "Le repos n'est pas une perte de temps, c'est un investissement sur toi-même.",
+  "Sois patient avec toi-même, les grandes réussites prennent du temps.",
+  "Chaque jour est une nouvelle occasion de devenir la meilleure version de toi-même.",
+  "La gratitude transforme ce que tu as en suffisance.",
+  "Tu as déjà surmonté des défis difficiles, tu peux affronter celui d'aujourd'hui aussi.",
+  "Prendre un instant pour souffler aujourd'hui n'est pas une faiblesse, c'est de la sagesse.",
+  "Aide quelqu'un aujourd'hui, même un petit geste peut changer sa journée.",
+  "Tu n'es pas en retard dans ta vie, tu suis ton propre chemin.",
+  "Célèbre tes petites victoires, elles construisent les grandes.",
+  "Avoir confiance en toi aujourd'hui, c'est déjà un cadeau que tu te fais.",
+  "Le bonheur se trouve souvent dans les choses simples : un café chaud, un rire partagé.",
+  "Tu mérites autant de bienveillance envers toi-même que celle que tu donnes aux autres.",
+  "Avance à ton rythme, ce qui compte c'est la direction, pas la vitesse.",
+  "Prends le temps d'apprécier les gens qui t'entourent aujourd'hui.",
+  "Ce n'est pas grave de ne pas tout savoir, l'important est d'essayer.",
+  "Ton bien-être d'aujourd'hui prépare ta sérénité de demain.",
+  "Respire profondément, tu fais déjà beaucoup mieux que tu ne le penses.",
+  "La bienveillance envers toi-même est le point de départ de tout le reste.",
+  "Chaque effort que tu fais, même invisible, te rapproche de tes objectifs.",
+  "Aujourd'hui est une bonne journée pour être fier de qui tu es en train de devenir.",
+]
+
+function getDailyThought(): string {
+  const start = new Date(new Date().getFullYear(), 0, 0)
+  const diff = Date.now() - start.getTime()
+  const dayOfYear = Math.floor(diff / 86400000)
+  return DAILY_THOUGHTS[dayOfYear % DAILY_THOUGHTS.length]
 }
 
 // ─── Animated counter ─────────────────────────────────────────────────────────
@@ -78,6 +148,7 @@ export default function HomeTab({ transactions, onUpdate, profile }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [totalSavings, setTotalSavings] = useState(0)
   const [totalDebt, setTotalDebt] = useState(0)
+  const [totalFactures, setTotalFactures] = useState(0)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const now = new Date()
@@ -85,12 +156,13 @@ export default function HomeTab({ transactions, onUpdate, profile }: Props) {
   const monthTxs = transactions.filter(t => t.date.startsWith(ym))
   const income = monthTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const expenses = monthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const totalTransactions = expenses
   const balance = income - expenses
   const recent = transactions.slice(0, 5)
   const health = computeHealthScore(transactions, [], [], [])
   const plan = computeCoachPlan([], [], [], ym)
-  const netWorth = totalSavings - totalDebt
   const categories = form.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
+  const dailyThought = getDailyThought()
 
   const healthColor = health.score >= 80 ? '#16A34A' : health.score >= 60 ? '#2563EB' : health.score >= 40 ? '#D97706' : '#DC2626'
   const healthLabel = health.score >= 80 ? 'Excellent' : health.score >= 60 ? 'Bien' : health.score >= 40 ? 'À améliorer' : 'Fragile'
@@ -103,7 +175,14 @@ export default function HomeTab({ transactions, onUpdate, profile }: Props) {
   useEffect(() => {
     getSavings().then(gs => setTotalSavings(gs.reduce((s, g) => s + g.saved, 0)))
     getDebts().then(ds => setTotalDebt(ds.filter(d => d.type === 'owe').reduce((s, d) => s + d.remaining, 0)))
-  }, [])
+    async function loadFactures() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase.from('factures').select('amount').eq('user_id', user.id).eq('month', ym)
+      setTotalFactures((data ?? []).reduce((s, f) => s + Number(f.amount), 0))
+    }
+    loadFactures()
+  }, [ym])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -148,14 +227,23 @@ export default function HomeTab({ transactions, onUpdate, profile }: Props) {
   return (
     <div className="space-y-4">
 
-      {/* ── 6 KPIs ───────────────────────────────────────────────────────── */}
+      {/* ── Logo + slogan ────────────────────────────────────────────────── */}
+      <AppBrandHeader />
+
+      {/* ── Pensée positive du jour ──────────────────────────────────────── */}
+      <div className="card bg-purple-50 border border-purple-100">
+        <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider mb-1">✨ Pensée du jour</p>
+        <p className="text-sm text-purple-800 leading-snug">{dailyThought}</p>
+      </div>
+
+      {/* ── KPIs ─────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
         {[
           { label: 'Revenus', value: formatAmount(income), icon: '💰', bg: 'bg-green-50', color: 'text-green-700', border: 'border-green-100' },
-          { label: 'Dépenses', value: formatAmount(expenses), icon: '💸', bg: 'bg-orange-50', color: 'text-orange-700', border: 'border-orange-100' },
-          { label: 'Patrimoine net', value: formatAmount(netWorth), icon: '💎', bg: 'bg-purple-50', color: 'text-purple-700', border: 'border-purple-100' },
-          { label: 'Épargne totale', value: formatAmount(totalSavings), icon: '🪙', bg: 'bg-green-50', color: 'text-green-700', border: 'border-green-100' },
+          { label: 'Total transactions', value: formatAmount(totalTransactions), icon: '💸', bg: 'bg-orange-50', color: 'text-orange-700', border: 'border-orange-100' },
+          { label: 'Total factures', value: formatAmount(totalFactures), icon: '🧾', bg: 'bg-yellow-50', color: 'text-yellow-700', border: 'border-yellow-100' },
           { label: 'Dette restante', value: formatAmount(totalDebt), icon: '💳', bg: 'bg-red-50', color: 'text-red-700', border: 'border-red-100' },
+          { label: 'Épargne totale', value: formatAmount(totalSavings), icon: '🪙', bg: 'bg-green-50', color: 'text-green-700', border: 'border-green-100' },
           { label: 'Argent libre', value: formatAmount(plan.freeMoney > 0 ? plan.freeMoney : balance), icon: '📈', bg: 'bg-blue-50', color: 'text-blue-700', border: 'border-blue-100' },
         ].map((kpi) => (
           <div key={kpi.label} className={`${kpi.bg} border ${kpi.border} rounded-2xl p-4`}>
@@ -168,11 +256,11 @@ export default function HomeTab({ transactions, onUpdate, profile }: Props) {
         ))}
       </div>
 
-      {/* ── Santé financière ─────────────────────────────────────────────── */}
+      {/* ── Situation financière ─────────────────────────────────────────── */}
       <div className="card-lg">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-xs font-bold text-ink-soft uppercase tracking-wider">Santé financière</p>
+            <p className="text-xs font-bold text-ink-soft uppercase tracking-wider">Situation financière</p>
             <p className="text-base font-bold mt-0.5" style={{ color: healthColor }}>{healthLabel}</p>
           </div>
           <button
