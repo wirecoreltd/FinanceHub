@@ -529,20 +529,7 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
             </div>
           ))}
         </div>
-      </div>
-
-      {/* ── Dettes du mois ───────────────────────────────────────────────── */}
-      <DebtMonthCard
-        debts={debts}
-        month={ym}
-        onClick={() => onGoToMoney('dettes')}
-      />
-
-      {/* ── Projets ──────────────────────────────────────────────────────── */}
-      <ProjectsCard
-        projects={projects}
-        onClick={onGoToProjects}
-      />
+      </div>      
 
       {/* ── Coach tip ────────────────────────────────────────────────────── */}
       <CoachTip message={tip} />
