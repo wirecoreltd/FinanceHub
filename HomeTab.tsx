@@ -219,6 +219,7 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
       setTotalFactures((data ?? []).reduce((s, f) => s + Number(f.amount), 0))
     }
     loadFactures()
+    loadMonthlyIncome()
   }, [ym])
 
   useEffect(() => {
@@ -304,7 +305,9 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
         <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider mb-1">✨ Pensée du jour</p>
         <p className="text-sm text-purple-800 leading-snug">{dailyThought}</p>
       </div>
-
+      
+console.log('monthlyIncome state =', monthlyIncome)
+      
       {/* ── KPIs cliquables ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
         {kpis.map((kpi) => (
