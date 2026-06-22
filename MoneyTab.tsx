@@ -627,27 +627,55 @@ function RevenusSection() {
   }, [])
 
   async function loadAll() {
-    setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const [{ data: inc }, { data: src }] = await Promise.all([
-      supabase.from('monthly_incomes').select('*').eq('user_id', user!.id).eq('month', ym).order('created_at', { ascending: true }),
-      console.log('YM', ym)
-console.log('USER', user?.id)
-console.log('INCOMES', inc)
-      supabase.from('income_sources').select('*').eq('user_id', user!.id).order('name'),
-      
-    ])
-    const incData: RevenuSource[] = (inc ?? []).map(r => ({
-      id: r.id, label: r.label, amount: Number(r.amount),
-      type: (r.is_fixed ? 'fixed' : 'variable') as 'fixed' | 'variable', month: r.month,
-    }))
-    setRevenus(incData)
-    if (incData.length > 0) setOpen(true)
-    setSavedSources((src ?? []).map(r => ({
-      id: r.id, name: r.name, type: r.is_fixed ? 'fixed' : 'variable',
-    })))
-    setLoading(false)
-  }
+  setLoading(true)
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  console.log('YM', ym)
+  console.log('USER', user?.id)
+
+  const [
+    { data: inc, error: incError },
+    { data: src, error: srcError }
+  ] = await Promise.all([
+    supabase
+      .from('monthly_incomes')
+      .select('*')
+      .eq('user_id', user!.id)
+      .eq('month', ym)
+      .order('created_at', { ascending: true }),
+
+    supabase
+      .from('income_sources')
+      .select('*')
+      .eq('user_id', user!.id)
+      .order('name')
+  ])
+
+  console.log('INCOME ERROR', incError)
+  console.log('INCOMES', inc)
+  console.log('SOURCE ERROR', srcError)
+
+  const incData: RevenuSource[] = (inc ?? []).map(r => ({
+    id: r.id,
+    label: r.label,
+    amount: Number(r.amount),
+    type: r.is_fixed ? 'fixed' : 'variable',
+    month: r.month,
+  }))
+
+  setRevenus(incData)
+
+  if (incData.length > 0) setOpen(true)
+
+  setSavedSources((src ?? []).map(r => ({
+    id: r.id,
+    name: r.name,
+    type: r.is_fixed ? 'fixed' : 'variable',
+  })))
+
+  setLoading(false)
+}
 
   function pickSource(name: string, type: 'fixed' | 'variable' = 'fixed') {
     setForm(f => ({ ...f, label: name, type }))
