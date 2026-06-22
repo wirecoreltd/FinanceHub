@@ -205,7 +205,12 @@ export default function CoachPage() {
       ])
 
       // 2. Pré-calculer le plan (snowball, reste à vivre) côté code — pas par le LLM
-      const plan = computeCoachPlan(debts, recurring, incomes, month)
+     const effectiveIncomes: MonthlyIncome[] =
+  incomes.length > 0
+    ? incomes
+    : [{ id: 'profile', label: 'Revenu déclaré', amount: p.monthlyIncome, isFixed: true, month }]
+
+const plan = computeCoachPlan(debts, recurring, effectiveIncomes, month)
 
       // 3. Dépenses des 30 derniers jours, regroupées par catégorie
       const thirtyDaysAgo = new Date()
@@ -281,6 +286,7 @@ export default function CoachPage() {
       const context = `
 PROFIL UTILISATEUR :
 Prénom : ${p.firstName}
+Revenu mensuel déclaré dans le profil : ${formatAmount(p.monthlyIncome, p.currency)}
 Situation familiale : ${p.situation}${p.children > 0 ? ` avec ${p.children} enfant(s)` : ''}
 Type de revenu : ${p.incomeType}
 Objectif principal : ${p.mainGoal}
