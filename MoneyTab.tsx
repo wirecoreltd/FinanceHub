@@ -630,10 +630,7 @@ function RevenusSection() {
   setLoading(true)
 
   const { data: { user } } = await supabase.auth.getUser()
-
-  console.log('YM', ym)
-  console.log('USER', user?.id)
-
+    
   const [
     { data: inc, error: incError },
     { data: src, error: srcError }
@@ -650,10 +647,6 @@ function RevenusSection() {
       .eq('user_id', user!.id)
       .order('name')
   ])
-
-  console.log('INCOME ERROR', incError)
-  console.log('INCOMES', inc)
-  console.log('SOURCE ERROR', srcError)
 
   const incData: RevenuSource[] = (inc ?? []).map(r => ({
     id: r.id,
