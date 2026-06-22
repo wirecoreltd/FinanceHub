@@ -642,7 +642,7 @@ function RevenusSection() {
       .from('monthly_incomes')
       .select('*')
       .eq('user_id', user!.id)
-      .eq('month', ym)      
+      .eq('month', ym),      
 
     supabase
       .from('income_sources')
