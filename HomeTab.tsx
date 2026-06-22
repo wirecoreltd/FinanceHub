@@ -139,8 +139,8 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
   const [projects, setProjects] = useState<Project[]>([])
   const [paidTotal, setPaidTotal] = useState(0)
   const [totalDue, setTotalDue] = useState(0)
+  const [monthlyIncome, setMonthlyIncome] = useState(0)
   const chatEndRef = useRef<HTMLDivElement>(null)
-
   const ym = currentYearMonth()
   const monthTxs = transactions.filter(t => t.date.startsWith(ym))
   const income = monthTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
