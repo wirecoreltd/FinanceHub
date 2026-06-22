@@ -189,6 +189,29 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
 
     getProjects().then(setProjects)
 
+    async function loadMonthlyIncome() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const { data, error } = await supabase
+    .from('monthly_incomes')
+    .select('amount')
+    .eq('user_id', user.id)
+    .eq('month', ym)
+
+  console.log('MONTHLY_INCOME_DATA', data)
+  console.log('MONTHLY_INCOME_ERROR', error)
+
+  const total = (data ?? []).reduce(
+    (sum, row) => sum + Number(row.amount),
+    0
+  )
+
+  console.log('MONTHLY_INCOME_TOTAL', total)
+
+  setMonthlyIncome(total)
+}
+    
     async function loadFactures() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
