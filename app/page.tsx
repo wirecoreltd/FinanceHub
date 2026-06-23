@@ -75,24 +75,19 @@ export default function Page() {
   return (
     <div className="min-h-screen bg-mist">
 
-      {/* ── Header mobile (uniquement sur mobile, sticky en haut) ── */}
+      {/* ── Header mobile uniquement ── */}
       <header className="md:hidden sticky top-0 z-40 bg-white border-b border-mist-dark">
         <div className="flex items-center justify-between px-4 py-3">
-
-          {/* Logo */}
           <span className="text-lg font-bold text-ink">
             Money<span className="text-accent">Pilot</span>
           </span>
-
-          {/* Profil + déconnexion */}
           <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-ink">
               👋 {profile.firstName}
             </span>
-
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-70 text-red-600 text-xs font-bold border border-red-100 active:scale-95 transition-all"
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-red-600 text-white border border-red-700 active:scale-95 transition-all"
             >
               ⏻
             </button>
@@ -100,8 +95,13 @@ export default function Page() {
         </div>
       </header>
 
-      {/* ── Navigation ── */}
-      <BottomNav active={tab} onChange={setTab} />
+      {/* ── Sidebar desktop (profile + déconnexion passés en props) ── */}
+      <BottomNav
+        active={tab}
+        onChange={setTab}
+        profile={profile}
+        onSignOut={handleSignOut}
+      />
 
       {/* ── Contenu principal ── */}
       <main className="md:ml-60 pb-28 md:pb-8 px-4 py-4 md:px-8 md:py-8 max-w-2xl mx-auto md:mx-0">
