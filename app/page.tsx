@@ -43,7 +43,6 @@ export default function Page() {
     setProfile(p)
   }
 
-  // Navigate to a specific money sub-tab
   function goToMoney(sub: MoneySubTab) {
     setMoneySubTab(sub)
     setTab('money')
@@ -53,10 +52,14 @@ export default function Page() {
     setTab('projets')
   }
 
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-accent to-blue-800
-                      flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-accent to-blue-800 flex items-center justify-center">
         <div className="text-center text-white">
           <div className="text-5xl mb-4 animate-pulse">⏳</div>
           <p className="font-bold text-xl">MoneyPilot</p>
@@ -71,27 +74,49 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-mist">
+
+      {/* ── Header mobile (uniquement sur mobile, sticky en haut) ── */}
+      <header className="md:hidden sticky top-0 z-40 bg-white border-b border-mist-dark">
+        <div className="flex items-center justify-between px-4 py-3">
+
+          {/* Logo */}
+          <span className="text-lg font-bold text-ink">
+            Money<span className="text-accent">Pilot</span>
+          </span>
+
+          {/* Profil + déconnexion */}
+          <div className="flex items-center gap-3">
+            {/* Avatar initiale */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-sm font-bold">
+                  {profile.firstName?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <span className="text-sm font-semibold text-ink">
+                {profile.firstName}
+              </span>
+            </div>
+
+            {/* Bouton déconnexion */}
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 text-xs font-bold border border-red-100 active:scale-95 transition-all"
+            >
+              <span>↪️</span>
+              <span>Sortir</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Navigation ── */}
       <BottomNav active={tab} onChange={setTab} />
-        <header className="flex md:hidden sticky top-0 z-30 bg-white border-b border-mist-dark px-4 py-3 justify-between items-center">
-      <span className="text-lg font-bold">
-        Money<span className="text-accent">Pilot</span>
-      </span>
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium">👋 {profile.firstName}</span>
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut()
-            window.location.href = '/login'
-          }}
-          className="text-red-600 font-semibold text-sm flex items-center gap-1"
-        >
-          <span>↪️</span>
-          <span className="hidden sm:inline">Déconnexion</span>
-        </button>
-      </div>
-    </header>
+
+      {/* ── Contenu principal ── */}
       <main className="md:ml-60 pb-28 md:pb-8 px-4 py-4 md:px-8 md:py-8 max-w-2xl mx-auto md:mx-0">
-        {tab === 'home'    && (
+
+        {tab === 'home' && (
           <HomeTab
             transactions={transactions}
             onUpdate={refresh}
@@ -100,7 +125,8 @@ export default function Page() {
             onGoToProjects={goToProjects}
           />
         )}
-        {tab === 'money'   && (
+
+        {tab === 'money' && (
           <MoneyTab
             transactions={transactions}
             onUpdate={refresh}
@@ -108,9 +134,11 @@ export default function Page() {
             onSubTabChange={setMoneySubTab}
           />
         )}
+
         {tab === 'bilan'   && <BilanTab    transactions={transactions} />}
         {tab === 'projets' && <ProjectsTab />}
         {tab === 'coach'   && <CoachTab />}
+
       </main>
     </div>
   )
