@@ -106,10 +106,9 @@ export default function BottomNav({ active, onChange, profile, onSignOut }: Prop
             </div>
             <button
               onClick={onSignOut}
-              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors text-left"
+              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold text-red-500 hover:bg-red-80 transition-colors text-left"
             >
-              <span>↪️</span>
-              Déconnexion
+              <span>⏻</span>              
             </button>
           </div>
         )}
