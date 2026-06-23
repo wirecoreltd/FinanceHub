@@ -10,20 +10,8 @@ import {
 import CoachTip from './CoachTip'
 import { supabase } from '@/lib/supabase'
 
-function AppBrandHeader() {
-  return (
-    <div className="flex items-center justify-between py-2">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-xl bg-accent flex items-center justify-center">
-          <Wallet size={16} className="text-white" />
-        </div>
-        <span className="text-lg font-bold text-ink">MoneyPilot</span>
-      </div>
-    </div>
-  )
-}
-
 export type MoneySubTab = 'transactions' | 'revenus' | 'factures' | 'dettes' | 'epargne' | 'budget'
+
 interface Props {
   transactions: Transaction[]
   onUpdate: () => void
@@ -141,10 +129,11 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
   const [totalDue, setTotalDue] = useState(0)
   const [monthlyIncome, setMonthlyIncome] = useState(0)
   const chatEndRef = useRef<HTMLDivElement>(null)
+
   const ym = currentYearMonth()
   const monthTxs = transactions.filter(t => t.date.startsWith(ym))
   const income = monthTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const expenses = monthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)   
+  const expenses = monthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
   const totalTransactions = expenses
   const balance = monthlyIncome - expenses
   const recent = transactions.slice(0, 5)
@@ -168,7 +157,6 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
       setDebts(ds)
       setTotalDebt(ds.filter(d => d.type === 'owe').reduce((s, d) => s + d.remaining, 0))
 
-      // ── Dettes du mois : utilise debt_payment_history (bonne table) ──
       const owedDebts = ds.filter(d => d.type === 'owe' && d.minimumPayment > 0)
       const due = owedDebts.reduce((s, d) => s + d.minimumPayment, 0)
       setTotalDue(due)
@@ -190,34 +178,24 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
     getProjects().then(setProjects)
 
     async function loadMonthlyIncome() {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('monthly_incomes')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('month', ym)
+      const total = (data ?? []).reduce((sum, row) => sum + Number(row.amount), 0)
+      setMonthlyIncome(total)
+    }
 
-  const { data, error } = await supabase
-    .from('monthly_incomes')
-    .select('amount')
-    .eq('user_id', user.id)
-    .eq('month', ym)
-
-  console.log('MONTHLY_INCOME_DATA', data)
-  console.log('MONTHLY_INCOME_ERROR', error)
-
-  const total = (data ?? []).reduce(
-    (sum, row) => sum + Number(row.amount),
-    0
-  )
-
-  console.log('MONTHLY_INCOME_TOTAL', total)
-
-  setMonthlyIncome(total)
-}
-    
     async function loadFactures() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data } = await supabase.from('factures').select('amount').eq('user_id', user.id).eq('month', ym)
       setTotalFactures((data ?? []).reduce((s, f) => s + Number(f.amount), 0))
     }
+
     loadFactures()
     loadMonthlyIncome()
   }, [ym])
@@ -299,16 +277,13 @@ export default function HomeTab({ transactions, onUpdate, profile, onGoToMoney, 
   return (
     <div className="space-y-4">
 
-      <AppBrandHeader />
-
+      {/* ── Pensée du jour ── */}
       <div className="card bg-purple-50 border border-purple-100">
         <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider mb-1">✨ Pensée du jour</p>
         <p className="text-sm text-purple-800 leading-snug">{dailyThought}</p>
       </div>
-      
-console.log('monthlyIncome state =', monthlyIncome)
-      
-      {/* ── KPIs cliquables ──────────────────────────────────────────────── */}
+
+      {/* ── KPIs cliquables ── */}
       <div className="grid grid-cols-2 gap-3">
         {kpis.map((kpi) => (
           <button
@@ -328,7 +303,7 @@ console.log('monthlyIncome state =', monthlyIncome)
         ))}
       </div>
 
-      {/* ── Projets ──────────────────────────────────────────────────────── */}
+      {/* ── Projets ── */}
       {projects.length > 0 && (
         <button
           onClick={onGoToProjects}
@@ -368,7 +343,7 @@ console.log('monthlyIncome state =', monthlyIncome)
         </button>
       )}
 
-      {/* ── Situation financière ─────────────────────────────────────────── */}
+      {/* ── Situation financière ── */}
       <div className="card-lg">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -409,7 +384,7 @@ console.log('monthlyIncome state =', monthlyIncome)
         <Plus size={20} /> Ajouter une transaction
       </button>
 
-      {/* ── Transactions récentes cliquables ─────────────────────────────── */}
+      {/* ── Transactions récentes ── */}
       {recent.length > 0 && (
         <button
           onClick={() => onGoToMoney('transactions')}
@@ -443,7 +418,7 @@ console.log('monthlyIncome state =', monthlyIncome)
         </button>
       )}
 
-      {/* ── Modal : ajouter transaction ───────────────────────────────────── */}
+      {/* ── Modal : ajouter transaction ── */}
       {showForm && (
         <div className="bottom-sheet bg-black/40">
           <div className="bottom-sheet-content">
@@ -490,7 +465,7 @@ console.log('monthlyIncome state =', monthlyIncome)
         </div>
       )}
 
-      {/* ── Chat coach IA ─────────────────────────────────────────────────── */}
+      {/* ── Chat coach IA ── */}
       {showChat && (
         <div className="bottom-sheet bg-black/40">
           <div className="bg-white rounded-t-3xl w-full max-w-lg flex flex-col" style={{ height: '80vh' }}>
