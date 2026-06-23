@@ -90,28 +90,25 @@ export default function BottomNav({ active, onChange, profile, onSignOut }: Prop
           )
         })}
 
-        {/* ── Profil + déconnexion en bas de la sidebar ── */}
-        {profile && onSignOut && (
-          <div className="mt-auto pt-4 border-t border-mist-dark">
-            <div className="flex items-center gap-3 px-2 py-2 mb-1">
-              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-sm font-bold">
-                  {profile.firstName?.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-ink truncate">{profile.firstName}</p>
-                <p className="text-[10px] text-ink-soft">Connecté</p>
+       {/* ── Profil + déconnexion en bas de la sidebar ── */}
+          {profile && onSignOut && (
+            <div className="mt-auto pt-4 border-t border-mist-dark">
+              <div className="flex items-center justify-center gap-3 px-2 py-2">
+                <span className="text-lg">👋</span>
+          
+                <p className="text-sm font-bold text-ink truncate">
+                  {profile.firstName}
+                </p>
+          
+                <button
+                  onClick={onSignOut}
+                  className="flex items-center justify-center text-red-500 hover:text-red-600 transition-colors"
+                >
+                  <span className="text-xl">⏻</span>
+                </button>
               </div>
             </div>
-            <button
-              onClick={onSignOut}
-              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold text-red-500 hover:bg-red-80 transition-colors text-left"
-            >
-              <span>⏻</span>              
-            </button>
-          </div>
-        )}
+          )}
       </aside>
     </>
   )
