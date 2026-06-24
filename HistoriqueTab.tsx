@@ -209,8 +209,7 @@ export default function HistoriqueTab() {
 
     all.sort((a, b) => b.date.localeCompare(a.date))
     setEvents(all)
-    if (all.length <= 20) setExpandedDays(new Set(all.map(e => e.date)))
-    else setExpandedDays(new Set())
+    setExpandedDays(new Set())
     setLoading(false)
   }
 
@@ -543,14 +542,7 @@ export default function HistoriqueTab() {
             )
           })}
 
-          {/* Solde net */}
-          <div className="card bg-ink flex items-center justify-between py-3 px-4 rounded-2xl">
-            <span className="text-xs text-white/70 font-semibold uppercase tracking-wide">Solde net période</span>
-            <span className={`font-mono font-bold text-base ${totals.income - (totals.expense + totals.facture + totals.dette + totals.epargne) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {totals.income - (totals.expense + totals.facture + totals.dette + totals.epargne) >= 0 ? '+' : ''}
-              {formatAmount(totals.income - (totals.expense + totals.facture + totals.dette + totals.epargne))}
-            </span>
-          </div>
+
         </div>
       )}
     </div>
