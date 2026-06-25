@@ -119,7 +119,10 @@ export default function Page() {
       {/* ── Sidebar desktop ── */}
       <BottomNav
         active={tab}
-        onChange={setTab}
+        onChange={(t) => {
+          setTab(t)
+          localStorage.setItem('activeTab', t)
+        }}
         profile={profile}
         onSignOut={handleSignOut}
       />
