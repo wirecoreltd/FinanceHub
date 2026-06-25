@@ -548,13 +548,17 @@ export default function HistoriqueTab() {
                         </div>
                       )
                     })}
+                    <div className="px-4 py-2 border-t border-mist flex justify-between items-center bg-mist/50">
+                      <span className="text-xs text-ink-soft font-semibold">Total du jour</span>
+                      <span className={`font-mono text-sm font-bold ${dayTotal >= 0 ? 'text-positive' : 'text-danger'}`}>
+                        {dayTotal >= 0 ? '+' : '−'}{formatAmount(Math.abs(dayTotal))}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
             )
           })}
-
-
         </div>
       )}
     </div>
