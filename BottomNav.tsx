@@ -56,10 +56,13 @@ export default function BottomNav({ active, onChange, profile, onSignOut }: Prop
                         min-h-screen p-5 fixed top-0 left-0 gap-1">
         {/* Logo */}
         <div className="mb-8 px-2 pt-2">
-          <span className="text-2xl font-bold text-ink tracking-tight">
-            Money<span className="text-accent">Pilot</span>
-          </span>
-          <p className="text-xs text-ink-soft mt-1">Votre copilote financier au quotidien.</p>
+          <div className="flex items-center gap-2">
+            <img src="/moneypilot.png" alt="MoneyPilot" className="h-8 w-auto" />
+            <span className="text-2xl font-bold text-ink tracking-tight">
+              Money<span className="text-accent">Pilot</span>
+            </span>
+          </div>
+          <p className="text-xs text-orange-400 mt-1 text-center">Votre copilote financier au quotidien.</p>
         </div>
 
         {/* Nav items */}
